@@ -8,13 +8,24 @@
 #include "home_finding_robot.h"
 
 int main(void) {
+    setup();
     while(1) {
-        rotateRight();
-        _delay_ms(1000);
+        rotateRight(MIN_SPEED+.01);
+        _delay_ms(1500);
+        rotateRight(MIN_SPEED+.01+MAX_SPEED/2);
+        _delay_ms(500);
         stop();
         _delay_ms(1000);
-        rotateLeft();
+        rotateLeft(MAX_SPEED);
+        _delay_ms(2000);
+        stop();
         _delay_ms(1000);
+        moveForward(MIN_SPEED+.01);
+        _delay_ms(500);
+        stop();
+        _delay_ms(500);
+        moveBackward(MIN_SPEED+.01);
+        _delay_ms(500);
         stop();
         _delay_ms(1000);
     }
