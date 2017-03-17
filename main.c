@@ -12,7 +12,7 @@ int main(void) {
     while(1) {
         rotateRight(MIN_SPEED+.01);
         _delay_ms(1500);
-        rotateRight(MIN_SPEED+.01+MAX_SPEED/2);
+        rotateRight((MIN_SPEED+.01+MAX_SPEED)*2.0/3.0);
         _delay_ms(500);
         stop();
         _delay_ms(1000);

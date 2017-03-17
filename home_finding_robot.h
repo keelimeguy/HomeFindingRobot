@@ -12,8 +12,8 @@
 #include <util/delay.h>
 
 // Motor Variables
-#define MAX_SPEED 0.99
-#define MIN_SPEED 0.68
+#define MAX_SPEED 1.00
+#define MIN_SPEED 0.40
 #define LEFT_MOTOR_DIR_CHANGEABLE (leftDutyCycle != 0)
 #define RIGHT_MOTOR_DIR_CHANGEABLE (rightDutyCycle != 0)
 #define DIR_FORWARD 5     // 0b0101  [L_in1][L_in2][R_in1][R_in2]
