@@ -5,12 +5,14 @@
 
 #include "home_finding_robot.h"
 
-static uint8_t leftDutyCycle, rightDutyCycle;
+static uint8_t leftDutyCycle, rightDutyCycle, servoDutyCycle;
 
 static void initTimer0_PWM_61Hz(void);
+static void initTimer2_PWM_50Hz(void);
 static void setLeftMotorDirection(uint8_t dir);
 static void setRightMotorDirection(uint8_t dir);
 static uint8_t getDutyCycle(double dutyPercent, uint8_t max);
+static double getServoPercent(double angle);
 static void setDirection(uint8_t dir);
 static void setLeftDutyCycle(double dutyPercent);
 static void motorLeftSet(uint8_t val);
@@ -28,7 +30,8 @@ void setup(void) {
     DDRD |= (1<<DDD3); // Sets D3 as output pin
 
     // PWM setup
-    initTimer0_PWM_61Hz();
+    initTimer0_PWM_61Hz(); // motors
+    initTimer2_PWM_50Hz(); // servo
 
     // Enable interrupts
     sei();
@@ -45,8 +48,8 @@ static void initTimer0_PWM_61Hz(void) {
     // Set OC0A/B outputs to non-inverting mode
     TCCR0A |= (1<<COM0A1)|(1<<COM0B1);
 
-    leftDutyCycle = MIN_SPEED*0xff; // Start at minimum duty cycle
-    rightDutyCycle = MIN_SPEED*0xff; // Start at minimum duty cycle
+    leftDutyCycle = 0;
+    rightDutyCycle = 0;
     OCR0B = leftDutyCycle;
     OCR0A = rightDutyCycle;
 
@@ -62,8 +65,31 @@ ISR(TIMER0_OVF_vect) {
     OCR0A = rightDutyCycle;
 }
 
+static void initTimer2_PWM_50Hz(void) {
+    // Set Timer0 to Phase Correct PWM mode, top at OCR2A
+    TCCR2B |= (1<<WGM22);
+    TCCR2A |= (1<<WGM20);
+
+    // Set OC2B output to non-inverting mode
+    TCCR2A |= (1<<COM2B1);
+
+    OCR2A = 157;
+    servoDutyCycle = (uint8_t)(getServoPercent(0)*OCR2A); // Start servo at middle (0 degrees)
+    OCR2B = servoDutyCycle;
+
+    // PWM freq of ~50Hz (1024/16MHz = 64us, 64us*157*2 = 20.096ms)
+    TCCR2B |= (1<<CS22)|(1<<CS21)|(1<<CS20); // Set prescalar to 1024 and start clock
+}
+
+ISR(TIMER2_COMPA_vect) {
+    // Turn off overflow interrupt enable
+    TIMSK2 &= ~(1<<OCIE2A);
+    // Update duty cycle at top of waveform
+    OCR2B = servoDutyCycle;
+}
+
 static uint8_t getDutyCycle(double dutyPercent, uint8_t max) {
-    int duty = (int)(dutyPercent * ((double)(max) + 1.0) - 1.0); // dutyPercent = OCRx + 1 / 0xff=[max] + 1;
+    int duty = (int)(dutyPercent * (double)(max)); // dutyPercent = [duty] / [max];
 
     // Keep the duty cycle in bound
     if (duty < 0) duty = 0;
@@ -168,4 +194,24 @@ static void setRightDutyCycle(double dutyPercent) {
 
 static void motorRightSet(uint8_t val) {
     PORTD = (PORTD & ~(1<<PORTD6)) | ((1 & val)<<PORTD6); // turn off right PWM pin and set to val
+}
+
+/* ------------------------------------------------------------
+                           Servo
+   ------------------------------------------------------------ */
+
+
+static double getServoPercent(double angle) {
+    double pulse = (angle+90.0)/180.0*(SERVO_MAX-SERVO_MIN)+SERVO_MIN; // ms
+
+    // Keep the servo pulse in bound
+    if (pulse < SERVO_MIN) pulse = SERVO_MIN;
+    else if (pulse > SERVO_MAX) pulse = SERVO_MAX;
+
+    return pulse/SERVO_PERIOD;
+}
+
+void setServoAngle(double angle) {
+    servoDutyCycle = getServoPercent(angle)*OCR2A;
+    TIMSK2 |= (1<<OCIE2A); // Set compare A interrupt enable to update
 }
