@@ -9,31 +9,38 @@
 
 int main(void) {
     setup();
+
+    // Keep servo facing forward
+    setServoAngle(0);
+
+    // Blink the on-board LED to indicate startup
+    // (Don't want to start moving immediately when turned on)
+    _delay_ms(1000);
+    PORTB|=(1<<PORTB5);
+    _delay_ms(500);
+    PORTB&=~(1<<PORTB5);
+    _delay_ms(500);
+    PORTB|=(1<<PORTB5);
+    _delay_ms(500);
+    PORTB&=~(1<<PORTB5);
+    _delay_ms(500);
+    PORTB|=(1<<PORTB5);
+    _delay_ms(1000);
+    PORTB&=~(1<<PORTB5);
+
     while(1) {
-        setServoAngle(-90);
-        rotateRight(MIN_SPEED+.01);
-        _delay_ms(1500);
-        setServoAngle(90);
-        rotateRight((MIN_SPEED+.01+MAX_SPEED)*2.0/3.0);
-        _delay_ms(500);
-        setServoAngle(0);
-        stop();
-        _delay_ms(1000);
-        setServoAngle(-45);
-        rotateLeft(MAX_SPEED);
-        _delay_ms(2000);
-        stop();
-        _delay_ms(1000);
-        setServoAngle(45);
-        moveForward(MIN_SPEED+.01);
-        _delay_ms(500);
-        stop();
-        _delay_ms(500);
-        setServoAngle(30);
-        moveBackward(MIN_SPEED+.01);
-        _delay_ms(500);
-        setServoAngle(-30);
-        stop();
-        _delay_ms(1000);
+        // Avoid obstacles by turning right when an object is too close
+        // (Simple implementation, not perfect. Keep robot under supervision)
+        if (getDistanceCm() < 15) {
+            stop();
+            _delay_ms(50);
+            setSpeed(MIN_SPEED+.01, MIN_SPEED+.01);
+            rotateRight();
+            _delay_ms(400);
+            stop();
+        } else {
+            setSpeed(MIN_SPEED+.01, MIN_SPEED+.01);
+            moveForward();
+        }
     }
 }

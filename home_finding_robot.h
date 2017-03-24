@@ -14,9 +14,6 @@
 // Motor Variables
 #define MAX_SPEED 1.00
 #define MIN_SPEED 0.40
-#define SERVO_PERIOD 20.096 //1024*157*2/16MHz
-#define SERVO_MIN .768 // duty:6
-#define SERVO_MAX 2.816 // duty:22
 #define LEFT_MOTOR_DIR_CHANGEABLE (leftDutyCycle != 0)
 #define RIGHT_MOTOR_DIR_CHANGEABLE (rightDutyCycle != 0)
 #define DIR_FORWARD 5     // 0b0101  [L_in1][L_in2][R_in1][R_in2]
@@ -25,12 +22,23 @@
 #define DIR_RIGHT 6       // 0b0110
 #define DIR_STOP 0        // 0b0000
 
+// Servo Variables
+#define SERVO_PERIOD 20.096 //1024*157*2/16MHz
+#define SERVO_MIN .768 // duty:6
+#define SERVO_MAX 2.816 // duty:22
+
 void setup(void);
-void moveForward(double speed);
-void moveBackward(double speed);
-void rotateRight(double speed);
-void rotateLeft(double speed);
+
+void moveForward(void);
+void moveBackward(void);
+void rotateRight(void);
+void rotateLeft(void);
 void stop(void);
+void setSpeed(double speedL, double speedR);
+
 void setServoAngle(double angle);
+
+double getDistanceCm(void);
+// double getDistanceInch(void);
 
 #endif

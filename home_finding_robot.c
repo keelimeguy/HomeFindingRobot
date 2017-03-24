@@ -6,7 +6,10 @@
 #include "home_finding_robot.h"
 
 static uint8_t leftDutyCycle, rightDutyCycle, servoDutyCycle;
+static volatile double obstacle_distance_cm;
+// static volatile double obstacle_distance_inch;
 
+static void initTimer1_Capture_1s(void);
 static void initTimer0_PWM_61Hz(void);
 static void initTimer2_PWM_50Hz(void);
 static void setLeftMotorDirection(uint8_t dir);
@@ -15,19 +18,30 @@ static uint8_t getDutyCycle(double dutyPercent, uint8_t max);
 static double getServoPercent(double angle);
 static void setDirection(uint8_t dir);
 static void setLeftDutyCycle(double dutyPercent);
-static void motorLeftSet(uint8_t val);
+static void motorLeftSet(uint8_t val); // unused
 static void setRightDutyCycle(double dutyPercent);
-static void motorRightSet(uint8_t val);
+static void motorRightSet(uint8_t val); // unused
 
 
 void setup(void) {
     // On board LED
     DDRB |= (1<<DDB5); // Sets B5 as output pin
     // Motor setup
-    DDRB |= (1<<DDB2)|(1<<DDB1)|(1<<DDB0); // Sets B0, B1, B2 as output pins
+    DDRB |= (1<<DDB2)|(1<<DDB1)|(1<<DDB4); // Sets B4, B1, B2 as output pins
     DDRD |= (1<<DDD5)|(1<<DDD6)|(1<<DDD7); // Sets D5, D6, D7 as output pins
     // Servo setup
     DDRD |= (1<<DDD3); // Sets D3 as output pin
+    // Ultrasonic Sensor setup
+    DDRB &= ~(1<<PORTB0); // Set ECHO (PB0) as input
+    DDRC |= (1<<PORTC1); // Set TRIG (PC1) as output
+    obstacle_distance_cm = 0;
+    // obstacle_distance_inch = 0;
+
+    // Timer Capture Setup
+    initTimer1_Capture_1s();
+    // Enable Pin Change Interrupt
+    PCMSK0 |= (1<<PCINT0);
+    PCICR |= (1<<PCIE0);
 
     // PWM setup
     initTimer0_PWM_61Hz(); // motors
@@ -35,6 +49,51 @@ void setup(void) {
 
     // Enable interrupts
     sei();
+}
+
+/* ------------------------------------------------------------
+                        Timer Capture
+   ------------------------------------------------------------ */
+
+static void initTimer1_Capture_1s(void) {
+    // Set to overflow timer at 1s
+    TCCR1B |= (1<<WGM12); // Set to CTC mode, clear timer on compare match at OCR1A
+    TCCR1B |= (1<<CS12);  // Set pre-scalar to divide by 256
+    OCR1A = 62499;        // Compare match A after 1s ( 256*(62499+1)/16Mhz = 1s )
+    // Enable timer1 capture and overflow interrupts
+    TIMSK1 |= (1<<ICIE1)|(1<<OCIE1A);
+    // Captures on negative edge of ICP1 (PB0)
+}
+
+ISR(PCINT0_vect) {
+    if ((PINB & (1<<PINB0)) != 0) { // Rising edge
+        TCNT1 = 0;
+        PCICR &= ~(1<<PCIE0); // Disable interrupt
+    } else {
+        // distance invalid
+    }
+}
+
+ISR(TIMER1_CAPT_vect) {
+    // Capture obstacle distance
+    double time = ICR1;
+    time *= 16; // one tick = 256/16MHz = 16us
+    obstacle_distance_cm = time/58; // d(cm) = t(us)/58
+    // obstacle_distance_inch = time/148; // d(inch) = t(us)/148
+
+    PCICR |= (1<<PCIE0); // Enable pin change interrupt
+    // trigger next pulse
+    PORTC |= (1<<PORTC1); // turn on trigger
+    _delay_us(10); // hold trigger for 10us
+    PORTC &= ~(1<<PORTC1); // turn off trigger
+}
+
+ISR(TIMER1_COMPA_vect) {
+    PCICR |= (1<<PCIE0); // Enable pin change interrupt
+    // trigger next pulse
+    PORTC |= (1<<PORTC1); // turn on trigger
+    _delay_us(10); // hold trigger for 10us
+    PORTC &= ~(1<<PORTC1); // turn off trigger
 }
 
 /* ------------------------------------------------------------
@@ -113,7 +172,7 @@ static void setLeftMotorDirection(uint8_t dir) {
 static void setRightMotorDirection(uint8_t dir) {
     if (RIGHT_MOTOR_DIR_CHANGEABLE || dir == DIR_STOP) {
         // turn off right control pins and set to dir
-        PORTB = (PORTB & ~((1<<PORTB1)|(1<<PORTB0))) | (((2 & dir)<<(PORTB1-1))|((1 & dir)<<PORTB0));
+        PORTB = (PORTB & ~((1<<PORTB1)|(1<<PORTB4))) | (((2 & dir)<<(PORTB1-1))|((1 & dir)<<PORTB4));
     }
 }
 
@@ -122,42 +181,30 @@ static void setDirection(uint8_t dir) {
     setRightMotorDirection(dir);
 }
 
-void moveForward(double speed) {
-    setLeftDutyCycle(speed);
-    setRightDutyCycle(speed);
+void moveForward(void) {
     setDirection(DIR_FORWARD);
-    // Update PWM outside of setDutyCycle functions in order to minimize intermediate delay
-    TIMSK0 |= (1<<TOIE0); // Set overflow interrupt enable to update
 }
 
-void moveBackward(double speed) {
-    setLeftDutyCycle(speed);
-    setRightDutyCycle(speed);
+void moveBackward(void) {
     setDirection(DIR_BACKWARD);
-    // Update PWM outside of setDutyCycle functions in order to minimize intermediate delay
-    TIMSK0 |= (1<<TOIE0); // Set overflow interrupt enable to update
 }
 
-void rotateLeft(double speed) {
-    setLeftDutyCycle(speed);
-    setRightDutyCycle(speed);
+void rotateLeft(void) {
     setDirection(DIR_LEFT);
-    // Update PWM outside of setDutyCycle functions in order to minimize intermediate delay
-    TIMSK0 |= (1<<TOIE0); // Set overflow interrupt enable to update
 }
 
-void rotateRight(double speed) {
-    setLeftDutyCycle(speed);
-    setRightDutyCycle(speed);
+void rotateRight(void) {
     setDirection(DIR_RIGHT);
-    // Update PWM outside of setDutyCycle functions in order to minimize intermediate delay
-    TIMSK0 |= (1<<TOIE0); // Set overflow interrupt enable to update
 }
 
 void stop(void) {
-    setLeftDutyCycle(0);
-    setRightDutyCycle(0);
+    setSpeed(0, 0);
     setDirection(DIR_STOP);
+}
+
+void setSpeed(double speedL, double speedR) {
+    setLeftDutyCycle(speedL);
+    setRightDutyCycle(speedR);
     // Update PWM outside of setDutyCycle functions in order to minimize intermediate delay
     TIMSK0 |= (1<<TOIE0); // Set overflow interrupt enable to update
 }
@@ -215,3 +262,15 @@ void setServoAngle(double angle) {
     servoDutyCycle = getServoPercent(angle)*OCR2A;
     TIMSK2 |= (1<<OCIE2A); // Set compare A interrupt enable to update
 }
+
+/* ------------------------------------------------------------
+                      Ultrasonic Sensor
+   ------------------------------------------------------------ */
+
+double getDistanceCm(void) {
+    return obstacle_distance_cm;
+}
+
+// double getDistanceInch(void) {
+//     return obstacle_distance_inch;
+// }
