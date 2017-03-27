@@ -10,6 +10,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
+#include "mpu9250_lib.h"
+#include "ps2.h"
 
 // Motor Variables
 #define MAX_SPEED 1.00
@@ -37,8 +39,21 @@ void stop(void);
 void setSpeed(double speedL, double speedR);
 
 void setServoAngle(double angle);
+void servoSweepTask(void);
+void setServoSweep(double minAngle, double maxAngle, double angleStep, int timeDelay);
+void servoSweepOn(void);
+void servoSweepOff(void);
 
-double getDistanceCm(void);
-// double getDistanceInch(void);
+double getObstacleDistanceCm(void);
+// double getObstacleDistanceInch(void);
+
+void getHeading(float* Yaw, float* Pitch, float* Roll);
+void getDisplacement(char* stat, char* x, char* y);
+
+void start_counting(void);
+unsigned long timer_ellapsed_micros(uint8_t reset);
+
+void setDelay_ms(int delay);
+uint8_t delay_done(void);
 
 #endif

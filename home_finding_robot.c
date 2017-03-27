@@ -6,8 +6,18 @@
 #include "home_finding_robot.h"
 
 static uint8_t leftDutyCycle, rightDutyCycle, servoDutyCycle;
-static volatile double obstacle_distance_cm;
-// static volatile double obstacle_distance_inch;
+static volatile uint8_t dutyUpdateFlag = 0;
+static volatile double obstacle_distance_cm = 0;
+// static volatile double obstacle_distance_inch = 0;
+static volatile int timer0_overflows = 0; // Allows for about 17.8 minutes max timer
+static uint8_t start_time = 0;
+static uint8_t countingFlag = 0;
+static volatile int delayTimer;
+static volatile int sweepTimer;
+static float yaw = 0, pitch = 0, roll = 0;
+static uint8_t sweepEnabled = 0;
+static int sweepDelay = 0, sweepDirection = 1;
+static double sweepMin = 0, sweepMax = 0, sweepAngle = 0, sweepStep = 0;
 
 static void initTimer1_Capture_1s(void);
 static void initTimer0_PWM_61Hz(void);
@@ -18,10 +28,9 @@ static uint8_t getDutyCycle(double dutyPercent, uint8_t max);
 static double getServoPercent(double angle);
 static void setDirection(uint8_t dir);
 static void setLeftDutyCycle(double dutyPercent);
-static void motorLeftSet(uint8_t val); // unused
+// static void motorLeftSet(uint8_t val); // unused
 static void setRightDutyCycle(double dutyPercent);
-static void motorRightSet(uint8_t val); // unused
-
+// static void motorRightSet(uint8_t val); // unused
 
 void setup(void) {
     // On board LED
@@ -34,8 +43,9 @@ void setup(void) {
     // Ultrasonic Sensor setup
     DDRB &= ~(1<<PORTB0); // Set ECHO (PB0) as input
     DDRC |= (1<<PORTC1); // Set TRIG (PC1) as output
-    obstacle_distance_cm = 0;
-    // obstacle_distance_inch = 0;
+
+    delayTimer = 0;
+    sweepTimer = 0;
 
     // Timer Capture Setup
     initTimer1_Capture_1s();
@@ -46,6 +56,12 @@ void setup(void) {
     // PWM setup
     initTimer0_PWM_61Hz(); // motors
     initTimer2_PWM_50Hz(); // servo
+
+    // IMU setup
+    mpu9250_init(0);
+
+    // Mouse odometer setup
+    mouse_init();
 
     // Enable interrupts
     sei();
@@ -112,16 +128,46 @@ static void initTimer0_PWM_61Hz(void) {
     OCR0B = leftDutyCycle;
     OCR0A = rightDutyCycle;
 
+    TIMSK0 |= (1<<TOIE0);
+
     // PWM freq of ~61Hz (1024/16MHz = 64us, 64us*(255+1) = 16.384ms)
     TCCR0B |= (1<<CS02)|(1<<CS00); // Set prescalar to 1024 and start clock
 }
 
 ISR(TIMER0_OVF_vect) {
-    // Turn off overflow interrupt enable
-    TIMSK0 &= ~(1<<TOIE0);
-    // Update duty cycles at top of waveform
-    OCR0B = leftDutyCycle;
-    OCR0A = rightDutyCycle;
+    if (delayTimer>0) delayTimer --;
+    if (sweepTimer>0) sweepTimer--;
+    if (countingFlag == 1)
+        timer0_overflows++;
+    if (dutyUpdateFlag == 1) {
+        // Update duty cycles at top of waveform
+        OCR0B = leftDutyCycle;
+        OCR0A = rightDutyCycle;
+        dutyUpdateFlag = 0;
+    }
+}
+
+void start_counting(void) {
+    start_time = TCNT0;
+    timer0_overflows = 0;
+    countingFlag = 1;
+    // Retry if timer overflow occurred within execution of above
+    if (TCNT0 < start_time && timer0_overflows == 0)
+        start_counting();
+}
+
+unsigned long timer_ellapsed_micros(uint8_t reset) {
+    uint8_t now = TCNT0;
+    if (start_time <= now)
+        now -= start_time;
+    else {
+        now = (uint8_t) (0x0100 - (uint16_t)start_time + (uint16_t)now);
+        timer0_overflows--;
+    }
+    unsigned long ret = (unsigned long)now*64UL+(unsigned long)timer0_overflows*0x100UL*64UL;
+    if (reset) start_counting();
+    else countingFlag = 0;
+    return ret;
 }
 
 static void initTimer2_PWM_50Hz(void) {
@@ -155,6 +201,15 @@ static uint8_t getDutyCycle(double dutyPercent, uint8_t max) {
     else if (duty > max) duty = max;
 
     return (uint8_t) duty;
+}
+
+
+void setDelay_ms(int delay) {
+    delayTimer = (int)(delay/16.0);
+}
+
+uint8_t delay_done(void) {
+    return (delayTimer==0 ? 1 : 0);
 }
 
 /* ------------------------------------------------------------
@@ -206,7 +261,7 @@ void setSpeed(double speedL, double speedR) {
     setLeftDutyCycle(speedL);
     setRightDutyCycle(speedR);
     // Update PWM outside of setDutyCycle functions in order to minimize intermediate delay
-    TIMSK0 |= (1<<TOIE0); // Set overflow interrupt enable to update
+    dutyUpdateFlag = 1;
 }
 
 static void setLeftDutyCycle(double dutyPercent) {
@@ -222,9 +277,9 @@ static void setLeftDutyCycle(double dutyPercent) {
     leftDutyCycle = duty;
 }
 
-static void motorLeftSet(uint8_t val) {
-    PORTD = (PORTD & ~(1<<PORTD5)) | ((1 & val)<<PORTD5); // turn off left PWM pin and set to val
-}
+// static void motorLeftSet(uint8_t val) {
+//     PORTD = (PORTD & ~(1<<PORTD5)) | ((1 & val)<<PORTD5); // turn off left PWM pin and set to val
+// }
 
 static void setRightDutyCycle(double dutyPercent) {
     uint8_t duty;
@@ -239,9 +294,9 @@ static void setRightDutyCycle(double dutyPercent) {
     rightDutyCycle = duty;
 }
 
-static void motorRightSet(uint8_t val) {
-    PORTD = (PORTD & ~(1<<PORTD6)) | ((1 & val)<<PORTD6); // turn off right PWM pin and set to val
-}
+// static void motorRightSet(uint8_t val) {
+//     PORTD = (PORTD & ~(1<<PORTD6)) | ((1 & val)<<PORTD6); // turn off right PWM pin and set to val
+// }
 
 /* ------------------------------------------------------------
                            Servo
@@ -259,18 +314,74 @@ static double getServoPercent(double angle) {
 }
 
 void setServoAngle(double angle) {
+    sweepAngle = angle;
     servoDutyCycle = getServoPercent(angle)*OCR2A;
     TIMSK2 |= (1<<OCIE2A); // Set compare A interrupt enable to update
+}
+
+// Use software timer to minimize costly execution delays
+void servoSweepTask(void) {
+    if (sweepEnabled) {
+        if (sweepTimer == 0) {
+            sweepAngle+=sweepStep*sweepDirection;
+            if (sweepAngle >= sweepMax) {
+                sweepAngle = sweepMax;
+                sweepDirection = -sweepDirection;
+            }
+            if (sweepAngle <= sweepMin) {
+                sweepAngle = sweepMin;
+                sweepDirection = -sweepDirection;
+            }
+            sweepTimer = sweepDelay;
+            setServoAngle(sweepAngle);
+        }
+    }
+}
+
+void setServoSweep(double minAngle, double maxAngle, double angleStep, int timeDelay) {
+    sweepMin = minAngle;
+    sweepMax = maxAngle;
+    sweepStep = angleStep;
+    sweepDelay = timeDelay/16;
+    sweepTimer = 0;
+}
+
+void servoSweepOn(void) {
+    sweepEnabled = 1;
+}
+
+void servoSweepOff(void) {
+    sweepEnabled = 0;
 }
 
 /* ------------------------------------------------------------
                       Ultrasonic Sensor
    ------------------------------------------------------------ */
 
-double getDistanceCm(void) {
+double getObstacleDistanceCm(void) {
     return obstacle_distance_cm;
 }
 
-// double getDistanceInch(void) {
+// double getObstacleDistanceInch(void) {
 //     return obstacle_distance_inch;
 // }
+
+/* ------------------------------------------------------------
+                            IMU
+   ------------------------------------------------------------ */
+
+void getHeading(float* Yaw, float* Pitch, float* Roll) {
+    if (mpu9250_dataReady())
+        mpu9250_readData(&yaw, &pitch, &roll);
+    *Yaw = yaw;
+    *Pitch = pitch;
+    *Roll = roll;
+}
+
+/* ------------------------------------------------------------
+                        Mouse Odometer
+   ------------------------------------------------------------ */
+
+void getDisplacement(char* stat, char* x, char* y) {
+    mouse_pos(stat, x, y);
+}
