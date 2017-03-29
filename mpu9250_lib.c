@@ -85,10 +85,10 @@ static void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, flo
 void mpu9250_init(uint8_t calibrateMag) {
     // printf("initializing..\n");
 
-    beta = sqrtf(3.0f / 4.0f) * GyroMeasError;
+    beta = 2.0 + sqrtf(3.0f / 4.0f) * GyroMeasError;
     zeta = sqrtf(3.0f / 4.0f) * GyroMeasDrift;
-    Ascale = MPU9250_AFS_2G;
-    Gscale = MPU9250_GFS_250DPS;
+    Ascale = MPU9250_AFS_16G;
+    Gscale = MPU9250_GFS_2000DPS;
     Mscale = MPU9250_MFS_16BITS;
     Mmode = 0x02; // 2 for 8 Hz, 6 for 100 Hz continuous magnetometer data read
     twi_init();
@@ -149,16 +149,21 @@ void mpu9250_init(uint8_t calibrateMag) {
         // printf("  %s mG\n", outstr);
         // _delay_ms(10000);
     } else {
-        magbiasHard[0] = -769.931;  // User environmental x-axis correction in milliGauss, should be automatically calculated
-        magbiasHard[1] = 23.299;  // User environmental y-axis correction in milliGauss
-        magbiasHard[2] = 177.965;  // User environmental z-axis correction in milliGauss
-        magbiasSoft[0] = 0.939;  // User environmental x-axis correction in milliGauss, should be automatically calculated
-        magbiasSoft[1] = 0.827;  // User environmental x-axis correction in milliGauss, should be automatically calculated
-        magbiasSoft[2] = 1.378;  // User environmental x-axis correction in milliGauss, should be automatically calculated
-        // hard 201.861, 206.107, 119.219 mG
-        // soft 0.775, 0.886, 1.722 mG
-        // alt hard -769.931, 23.299, 177.965 mG
-        // alt soft 0.939, 0.827, 1.378 mG
+    // Adjusted to see:
+    // +N-S: 196.964 mG
+    // +E-W: -49.236 mG
+    // +D-U: 478.467 mG
+        magbiasHard[0] = -1205.808;  // User environmental x-axis correction in milliGauss, should be automatically calculated
+        magbiasHard[1] = -229.407;  // User environmental y-axis correction in milliGauss
+        magbiasHard[2] = 433.681;  // User environmental z-axis correction in milliGauss
+        magbiasSoft[0] = 0.575;  // User environmental x-axis correction in milliGauss, should be automatically calculated
+        magbiasSoft[1] = 1.370;  // User environmental x-axis correction in milliGauss, should be automatically calculated
+        magbiasSoft[2] = 1.887;  // User environmental x-axis correction in milliGauss, should be automatically calculated
+// Magnetometer Hard Iron bias: -121.474  -103.950  214.249 mG
+// Magnetometer Soft Iron bias:   1.406    0.517    2.812 mG
+
+// Magnetometer Hard Iron bias: -1205.808  -229.407  433.681 mG
+// Magnetometer Soft Iron bias:   0.575    1.370    1.887 mG
     }
 
     // dtostrf(1.0f/aRes, 7, 3, outstr);
@@ -169,7 +174,7 @@ void mpu9250_init(uint8_t calibrateMag) {
     // printf("Magnetometer sensitivity is %s LSB/G \n", outstr);
 
     // Start keeping time
-    start_counting();
+    start_counting(1);
 }
 
 uint8_t mpu9250_dataReady() {
@@ -196,56 +201,67 @@ void mpu9250_readData(float* Yaw, float* Pitch, float* Roll) {
     my = (float)magCount[1]*mRes*magCalibration[1] - magbiasHard[1] - magbiasSoft[1];
     mz = (float)magCount[2]*mRes*magCalibration[2] - magbiasHard[2] - magbiasSoft[2];
 
-    deltat = (timer_ellapsed_micros(1)/1000000.0f); // set integration time by time elapsed since last filter update
+    float t = (timer_ellapsed_micros(1, 1)/1000000.0f); // set integration time by time elapsed since last filter update
 
-    // Pass gyro rate as rad/s
-    MadgwickQuaternionUpdate(ax, ay, az, gx*PI/180.0f, gy*PI/180.0f, gz*PI/180.0f, my, mx, mz);
-    // MahonyQuaternionUpdate(ax, ay, az, gx*PI/180.0f, gy*PI/180.0f, gz*PI/180.0f, my, mx, mz);
+    deltat+=t;
 
-    // dtostrf(1000*ax, 7, 3, outstr);
-    // printf("ax = %s", outstr);
-    // dtostrf(1000*ay, 7, 3, outstr);
-    // printf(" ay = %s", outstr);
-    // dtostrf(1000*az, 7, 3, outstr);
-    // printf(" az = %s  mg\n", outstr);
+    // Not currently limiting sampling period (currently about 70ms)
+    if (deltat > 0) {
+        // Pass gyro rate as rad/s
+        MadgwickQuaternionUpdate(-ax, -ay, az, -gx*PI/180.0f, -gy*PI/180.0f, gz*PI/180.0f, -my, -mx, -mz);
+        // MahonyQuaternionUpdate(ax, ay, az, gx*PI/180.0f, gy*PI/180.0f, gz*PI/180.0f, my, mx, mz);
 
-    // dtostrf(gx, 7, 3, outstr);
-    // printf("gx = %s", outstr);
-    // dtostrf(gy, 7, 3, outstr);
-    // printf(" gy = %s", outstr);
-    // dtostrf(gz, 7, 3, outstr);
-    // printf(" gz = %s  deg/s\n", outstr);
+        // dtostrf(1000*ax, 7, 3, outstr);
+        // printf("ax = %s", outstr);
+        // dtostrf(1000*ay, 7, 3, outstr);
+        // printf(" ay = %s", outstr);
+        // dtostrf(1000*az, 7, 3, outstr);
+        // printf(" az = %s  mg\n", outstr);
 
-    // dtostrf(mx, 7, 3, outstr);
-    // printf("mx = %s", outstr);
-    // dtostrf(my, 7, 3, outstr);
-    // printf(" my = %s", outstr);
-    // dtostrf(mz, 7, 3, outstr);
-    // printf(" mz = %s  mG\n", outstr);
+        // dtostrf(gx, 7, 3, outstr);
+        // printf("gx = %s", outstr);
+        // dtostrf(gy, 7, 3, outstr);
+        // printf(" gy = %s", outstr);
+        // dtostrf(gz, 7, 3, outstr);
+        // printf(" gz = %s  deg/s\n", outstr);
 
-    // tempCount = readTempData();  // Read the adc values
-    // temperature = ((float) tempCount) / 333.87f + 21.0f; // Temperature in degrees Centigrade
-    // dtostrf(temperature, 7, 3, outstr);
-    // printf(" temperature = %s  C\n", outstr);
+        // Should see:
+        // +N-S: 196.964 mG
+        // +E-W: -49.236 mG
+        // +D-U: 478.467 mG
+        // dtostrf(mx, 7, 3, outstr);
+        // printf("mx = %s", outstr);
+        // dtostrf(my, 7, 3, outstr);
+        // printf(" my = %s", outstr);
+        // dtostrf(mz, 7, 3, outstr);
+        // printf(" mz = %s  mG\t", outstr);
 
-    // dtostrf(q[0], 7, 3, outstr);
-    // printf("q0 = %s\n", outstr);
-    // dtostrf(q[1], 7, 3, outstr);
-    // printf("q1 = %s\n", outstr);
-    // dtostrf(q[2], 7, 3, outstr);
-    // printf("q2 = %s\n", outstr);
-    // dtostrf(q[3], 7, 3, outstr);
-    // printf("q3 = %s\n", outstr);
+        // tempCount = readTempData();  // Read the adc values
+        // temperature = ((float) tempCount) / 333.87f + 21.0f; // Temperature in degrees Centigrade
+        // dtostrf(temperature, 7, 3, outstr);
+        // printf(" temperature = %s  C\n", outstr);
 
-    calcAngles();
-    // dtostrf(deltat, 4, 3, outstr);
-    // printf("deltat: %s  ", outstr);
-    // dtostrf(yaw, 7, 3, outstr);
-    // printf("Yaw, Pitch, Roll: %s ", outstr);
-    // dtostrf(pitch, 7, 3, outstr);
-    // printf("%s ", outstr);
-    // dtostrf(roll, 7, 3, outstr);
-    // printf("%s\n", outstr);
+        // dtostrf(q[0], 7, 3, outstr);
+        // printf("q0 = %s\n", outstr);
+        // dtostrf(q[1], 7, 3, outstr);
+        // printf("q1 = %s\n", outstr);
+        // dtostrf(q[2], 7, 3, outstr);
+        // printf("q2 = %s\n", outstr);
+        // dtostrf(q[3], 7, 3, outstr);
+        // printf("q3 = %s\n", outstr);
+
+        calcAngles();
+        // dtostrf(deltat, 4, 3, outstr);
+        // printf("deltat: %s  ", outstr);
+        // dtostrf(yaw, 7, 3, outstr);
+        // printf("Yaw, Pitch, Roll: %s ", outstr);
+        // dtostrf(pitch, 7, 3, outstr);
+        // printf("%s ", outstr);
+        // dtostrf(roll, 7, 3, outstr);
+        // printf("%s\n", outstr);
+
+        deltat = 0;
+    }
 
     *Yaw = yaw;
     *Pitch = pitch;
@@ -279,17 +295,14 @@ static void calcAngles() {
     float a31 =   2.0f * (q[0] * q[1] + q[2] * q[3]);
     float a32 =   2.0f * (q[1] * q[3] - q[0] * q[2]);
     float a33 =   q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3];
-    pitch = -asinf(a32);
-    roll  = atan2f(a31, a33);
-    yaw   = atan2f(a12, a22);
+    pitch = -asin(a32);
+    roll  = atan2(a31, a33);
+    yaw   = atan2(a12, a22);
     pitch *= 180.0f / PI;
     yaw   *= 180.0f / PI;
-    // yaw   += 14.03f; // Declination at Danville, California is 13 degrees 48 minutes and 47 seconds on 2014-04-04
-    if(yaw < 0) yaw   += 360.0f; // Ensure yaw stays between 0 and 360
+    // yaw   += 14.33f; // Declination at Danville, California is 13 degrees 48 minutes and 47 seconds on 2014-04-04
+    if (yaw < 0) yaw   += 360.0f; // Ensure yaw stays between 0 and 360
     roll  *= 180.0f / PI;
-    // lin_ax = ax + a31;
-    // lin_ay = ay + a32;
-    // lin_az = az - a33;
 }
 
 static void resetMPU9250() {
@@ -323,7 +336,7 @@ static void magcalMPU9250(float * dest1, float * dest2) {
     int32_t mag_bias[3] = {0, 0, 0}, mag_scale[3] = {0, 0, 0};
     int16_t mag_max[3] = {0x8000, 0x8000, 0x8000}, mag_min[3] = {0x7FFF, 0x7FFF, 0x7FFF}, mag_temp[3] = {0, 0, 0};
 
-    printf("\n\nMag Calibration: Wave device in a figure eight until done!");
+    // printf("\n\nMag Calibration: Wave device in a figure eight until done!");
     _delay_ms(4000);
 
     sample_count = 128;
@@ -357,7 +370,7 @@ static void magcalMPU9250(float * dest1, float * dest2) {
     dest2[1] = avg_rad/((float)mag_scale[1]);
     dest2[2] = avg_rad/((float)mag_scale[2]);
 
-    printf("Mag Calibration done!\n\n");
+    // printf("Mag Calibration done!\n\n");
 }
 
 static void initMPU9250() {

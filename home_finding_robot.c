@@ -9,18 +9,28 @@ static uint8_t leftDutyCycle, rightDutyCycle, servoDutyCycle;
 static volatile uint8_t dutyUpdateFlag = 0;
 static volatile double obstacle_distance_cm = 0;
 // static volatile double obstacle_distance_inch = 0;
-static volatile int timer0_overflows = 0; // Allows for about 17.8 minutes max timer
-static uint8_t start_time = 0;
-static uint8_t countingFlag = 0;
+static volatile int timer0_overflows[MAX_TIMERS]; // Allows for about 17.8 minutes max timer
+static uint8_t start_time[MAX_TIMERS];
+static uint8_t countingFlag[MAX_TIMERS];
 static volatile int delayTimer;
 static volatile int sweepTimer;
 static float yaw = 0, pitch = 0, roll = 0;
 static uint8_t sweepEnabled = 0;
 static int sweepDelay = 0, sweepDirection = 1;
 static double sweepMin = 0, sweepMax = 0, sweepAngle = 0, sweepStep = 0;
+static volatile int debounceTimer = 0;
+static uint8_t pushState = PUSH_STATE_NOPUSH;
+static uint8_t pushFlag_Debounce = 0;
+static uint8_t pushHandledFlag = 0;
+static volatile unsigned int Ain;
+static volatile int timeoutTimer = 0;
+static volatile uint8_t connectionError = 1;
 
+static void initADC(void);
+static void ADC_convert(uint8_t ADC_mux);
+static double readADC(double Aref);
 static void initTimer1_Capture_1s(void);
-static void initTimer0_PWM_61Hz(void);
+static void initTimer0_PWM_1kHz(void);
 static void initTimer2_PWM_50Hz(void);
 static void setLeftMotorDirection(uint8_t dir);
 static void setRightMotorDirection(uint8_t dir);
@@ -31,21 +41,32 @@ static void setLeftDutyCycle(double dutyPercent);
 // static void motorLeftSet(uint8_t val); // unused
 static void setRightDutyCycle(double dutyPercent);
 // static void motorRightSet(uint8_t val); // unused
+static uint8_t switchDebounce(uint8_t switchPressed);
 
-void setup(void) {
+void setup(uint8_t calibrate) {
     // On board LED
-    DDRB |= (1<<DDB5); // Sets B5 as output pin
+    DDRB |= (1<<DDB5); // Sets B5 (LED) as output pin
     // Motor setup
-    DDRB |= (1<<DDB2)|(1<<DDB1)|(1<<DDB4); // Sets B4, B1, B2 as output pins
-    DDRD |= (1<<DDD5)|(1<<DDD6)|(1<<DDD7); // Sets D5, D6, D7 as output pins
+    DDRB |= (1<<DDB2)|(1<<DDB1)|(1<<DDB4); // Sets B4 (N2), B1 (N1), B2 (N4) as output pins
+    DDRD |= (1<<DDD5)|(1<<DDD6)|(1<<DDD7); // Sets D5 (ENB), D6 (ENA), D7 (N3) as output pins
     // Servo setup
-    DDRD |= (1<<DDD3); // Sets D3 as output pin
+    DDRD |= (1<<DDD3); // Sets D3 (SIG) as output pin
     // Ultrasonic Sensor setup
     DDRB &= ~(1<<PORTB0); // Set ECHO (PB0) as input
     DDRC |= (1<<PORTC1); // Set TRIG (PC1) as output
+    // Line Sensor Setup
+    DDRB &= ~(1<<DDB3); // Sets B3 (lLine) as input pin
+    DDRD &= ~(1<<DDD2); // Sets D2 (rLine) as input pin
+    DDRC &= ~(1<<DDC0); // Sets C0 (mLine) as input pin
 
+    // Clear software timer variables
     delayTimer = 0;
     sweepTimer = 0;
+    for (int i = 0; i < MAX_TIMERS; i++) {
+        start_time[i] = 0;
+        timer0_overflows[i] = 0;
+        countingFlag[i] = 0;
+    }
 
     // Timer Capture Setup
     initTimer1_Capture_1s();
@@ -54,14 +75,20 @@ void setup(void) {
     PCICR |= (1<<PCIE0);
 
     // PWM setup
-    initTimer0_PWM_61Hz(); // motors
+    initTimer0_PWM_1kHz(); // motors
     initTimer2_PWM_50Hz(); // servo
 
     // IMU setup
-    mpu9250_init(0);
+    mpu9250_init(calibrate);
 
     // Mouse odometer setup
     mouse_init();
+
+    // ADC setup
+    initADC();
+
+    // Bluetooth setup
+    BT_init();
 
     // Enable interrupts
     sei();
@@ -116,7 +143,7 @@ ISR(TIMER1_COMPA_vect) {
                             PWM
    ------------------------------------------------------------ */
 
-static void initTimer0_PWM_61Hz(void) {
+static void initTimer0_PWM_1kHz(void) {
     // Set Timer0 to Fast PWM mode, top at 0xff
     TCCR0A |= (1<<WGM01)|(1<<WGM00);
 
@@ -130,15 +157,26 @@ static void initTimer0_PWM_61Hz(void) {
 
     TIMSK0 |= (1<<TOIE0);
 
-    // PWM freq of ~61Hz (1024/16MHz = 64us, 64us*(255+1) = 16.384ms)
-    TCCR0B |= (1<<CS02)|(1<<CS00); // Set prescalar to 1024 and start clock
+    // PWM freq of ~1kHz (64/16MHz = 4us, 4us*(255+1) = 1.024ms)
+    TCCR0B |= (1<<CS01)|(1<<CS00); // Set prescalar to 64 and start clock
 }
 
 ISR(TIMER0_OVF_vect) {
     if (delayTimer>0) delayTimer --;
     if (sweepTimer>0) sweepTimer--;
-    if (countingFlag == 1)
-        timer0_overflows++;
+    if (debounceTimer>0) debounceTimer--;
+    if (timeoutTimer > 0) {
+        timeoutTimer--;
+        if (timeoutTimer == 0) {
+            UCSR0B &= ~(1<<RXCIE0); // Disable Rx interrupt
+            stop();
+            connectionError = 1;
+            BT_prepare_for_pkt();
+        }
+    }
+    for (int i = 0; i < MAX_TIMERS; i++)
+        if (countingFlag[i] == 1)
+            timer0_overflows[i]++;
     if (dutyUpdateFlag == 1) {
         // Update duty cycles at top of waveform
         OCR0B = leftDutyCycle;
@@ -147,26 +185,35 @@ ISR(TIMER0_OVF_vect) {
     }
 }
 
-void start_counting(void) {
-    start_time = TCNT0;
-    timer0_overflows = 0;
-    countingFlag = 1;
-    // Retry if timer overflow occurred within execution of above
-    if (TCNT0 < start_time && timer0_overflows == 0)
-        start_counting();
+void setBTTimeout(int time) {
+    connectionError = 0;
+    timeoutTimer = time;
 }
 
-unsigned long timer_ellapsed_micros(uint8_t reset) {
+uint8_t error(void) {
+    return connectionError;
+}
+
+void start_counting(int index) {
+    start_time[index] = TCNT0;
+    timer0_overflows[index] = 0;
+    countingFlag[index] = 1;
+    // Retry if timer overflow occurred within execution of above
+    if (TCNT0 < start_time[index] && timer0_overflows[index] == 0)
+        start_counting(index);
+}
+
+unsigned long timer_ellapsed_micros(int index, uint8_t reset) {
     uint8_t now = TCNT0;
-    if (start_time <= now)
-        now -= start_time;
+    if (start_time[index] <= now)
+        now -= start_time[index];
     else {
-        now = (uint8_t) (0x0100 - (uint16_t)start_time + (uint16_t)now);
-        timer0_overflows--;
+        now = (uint8_t) (0x0100 - (uint16_t)start_time[index] + (uint16_t)now);
+        timer0_overflows[index]--;
     }
-    unsigned long ret = (unsigned long)now*64UL+(unsigned long)timer0_overflows*0x100UL*64UL;
-    if (reset) start_counting();
-    else countingFlag = 0;
+    unsigned long ret = (unsigned long)now*4UL+(unsigned long)timer0_overflows[index]*0x100UL*4UL;
+    if (reset) start_counting(index);
+    else countingFlag[index] = 0;
     return ret;
 }
 
@@ -205,7 +252,7 @@ static uint8_t getDutyCycle(double dutyPercent, uint8_t max) {
 
 
 void setDelay_ms(int delay) {
-    delayTimer = (int)(delay/16.0);
+    delayTimer = delay;
 }
 
 uint8_t delay_done(void) {
@@ -384,4 +431,90 @@ void getHeading(float* Yaw, float* Pitch, float* Roll) {
 
 void getDisplacement(char* stat, char* x, char* y) {
     mouse_pos(stat, x, y);
+}
+
+/* ---------------------------------------------------------
+                        ADC setup
+   --------------------------------------------------------- */
+
+static void initADC(void) {
+    ADCSRA = (1<<ADPS2) | (1<<ADPS1) | (1<<ADPS0); // Set prescalar 128 (128/16MHz * 13cycles = 104us wait time)
+    ADCSRA |= (1<<ADEN); // Enable ADC
+}
+
+static void ADC_convert(uint8_t ADC_mux) {
+    ADMUX = (1<<REFS0)|ADC_mux;
+    ADCSRA |= (1<<ADSC); // Set ADSC to 1 to begin a conversion.
+}
+
+static double readADC(double Aref) {
+    Ain = ADCL;
+    Ain |= ADCH<<8;
+    double val = (double)Ain/1024.0 * Aref;
+    return val;
+}
+
+/* --------------------------------------------------------
+                        Debounce setup
+   -------------------------------------------------------- */
+
+static uint8_t switchDebounce(uint8_t switchPressed) {
+    switch (pushState) {
+        case PUSH_STATE_NOPUSH:
+            if(debounceTimer == 0) {
+                if (switchPressed) pushState = PUSH_STATE_MAYBE;
+                else pushState = PUSH_STATE_NOPUSH;
+                debounceTimer = DEBOUNCE_WAIT;
+            }
+            break;
+        case PUSH_STATE_MAYBE:
+            if(debounceTimer == 0) {
+                if (switchPressed) {
+                    pushState = PUSH_STATE_PUSHED;
+                    pushFlag_Debounce = 1;
+                    pushHandledFlag = 0;
+                } else {
+                    pushState = PUSH_STATE_NOPUSH;
+                    pushFlag_Debounce = 0;
+                }
+                debounceTimer = DEBOUNCE_WAIT;
+            }
+            break;
+        case PUSH_STATE_MAYBE_FROM_PUSH:
+            if(debounceTimer == 0) {
+                if (switchPressed) {
+                    pushState = PUSH_STATE_PUSHED;
+                } else {
+                    pushState = PUSH_STATE_NOPUSH;
+                    pushFlag_Debounce = 0;
+                }
+                debounceTimer = DEBOUNCE_WAIT;
+            }
+            break;
+        case PUSH_STATE_PUSHED:
+            if(debounceTimer == 0) {
+                if (switchPressed) pushState = PUSH_STATE_PUSHED;
+                else pushState = PUSH_STATE_MAYBE_FROM_PUSH;
+                debounceTimer = DEBOUNCE_WAIT;
+            }
+            break;
+    }
+    return pushFlag_Debounce;
+}
+
+/* ------------------------------------------------------------
+                        Line Sensors
+   ------------------------------------------------------------ */
+
+double readLineSensors(void) {
+    ADC_convert(ADC_MIDDLE_SENSOR);
+    while(!ADC_COMPLETE);
+    double middleVal = readADC(V_REF);
+
+    // When directed towards a white surface, the voltage output will be lower than that on a black surface
+    if (switchDebounce(middleVal > SENSOR_THRESHOLD) && !pushHandledFlag) {
+        pushHandledFlag = 1;
+        PORTB ^= (1<<PORTB5);
+    }
+    return middleVal;
 }
