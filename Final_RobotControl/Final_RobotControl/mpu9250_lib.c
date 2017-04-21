@@ -80,7 +80,7 @@ static void calcAngles();
 static void MadgwickQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz);
 // static void MahonyQuaternionUpdate(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz);
 
-// static char outstr[15];
+static char outstr[15];
 
 void mpu9250_init(uint8_t calibrateMag) {
     // printf("initializing..\n");
@@ -135,17 +135,29 @@ void mpu9250_init(uint8_t calibrateMag) {
 
     if (calibrateMag) {
         magcalMPU9250(magbiasHard, magbiasSoft);
-        // dtostrf(magbiasHard[0], 7, 3, outstr);
+        dtostrf(magbiasHard[0], 7, 3, outstr);
+        BT_send_pkt((BT_packet_t){PKT_STRING, 14, (uint8_t*)outstr});
+        _delay_ms(5000);
         // printf("Magnetometer Hard Iron bias: %s", outstr);
-        // dtostrf(magbiasHard[1], 7, 3, outstr);
+        dtostrf(magbiasHard[1], 7, 3, outstr);
+        BT_send_pkt((BT_packet_t){PKT_STRING, 14, (uint8_t*)outstr});
+        _delay_ms(5000);
         // printf("  %s", outstr);
-        // dtostrf(magbiasHard[2], 7, 3, outstr);
+        dtostrf(magbiasHard[2], 7, 3, outstr);
+        BT_send_pkt((BT_packet_t){PKT_STRING, 14, (uint8_t*)outstr});
+        _delay_ms(5000);
         // printf("  %s mG\n", outstr);
-        // dtostrf(magbiasSoft[0], 7, 3, outstr);
+        dtostrf(magbiasSoft[0], 7, 3, outstr);
+        BT_send_pkt((BT_packet_t){PKT_STRING, 14, (uint8_t*)outstr});
+        _delay_ms(5000);
         // printf("Magnetometer Soft Iron bias: %s", outstr);
-        // dtostrf(magbiasSoft[1], 7, 3, outstr);
+        dtostrf(magbiasSoft[1], 7, 3, outstr);
+        BT_send_pkt((BT_packet_t){PKT_STRING, 14, (uint8_t*)outstr});
+        _delay_ms(5000);
         // printf("  %s", outstr);
-        // dtostrf(magbiasSoft[2], 7, 3, outstr);
+        dtostrf(magbiasSoft[2], 7, 3, outstr);
+        BT_send_pkt((BT_packet_t){PKT_STRING, 14, (uint8_t*)outstr});
+        _delay_ms(5000);
         // printf("  %s mG\n", outstr);
         // _delay_ms(10000);
     } else {
@@ -153,12 +165,12 @@ void mpu9250_init(uint8_t calibrateMag) {
     // +N-S: 196.964 mG
     // +E-W: -49.236 mG
     // +D-U: 478.467 mG
-        magbiasHard[0] = -1205.808;  // User environmental x-axis correction in milliGauss, should be automatically calculated
-        magbiasHard[1] = -229.407;  // User environmental y-axis correction in milliGauss
-        magbiasHard[2] = 433.681;  // User environmental z-axis correction in milliGauss
-        magbiasSoft[0] = 0.575;  // User environmental x-axis correction in milliGauss, should be automatically calculated
-        magbiasSoft[1] = 1.370;  // User environmental x-axis correction in milliGauss, should be automatically calculated
-        magbiasSoft[2] = 1.887;  // User environmental x-axis correction in milliGauss, should be automatically calculated
+        magbiasHard[0] = -1070.043;  // User environmental x-axis correction in milliGauss, should be automatically calculated
+        magbiasHard[1] = 231.199;  // User environmental y-axis correction in milliGauss
+        magbiasHard[2] = 12.095;  // User environmental z-axis correction in milliGauss
+        magbiasSoft[0] = 1.432;  // User environmental x-axis correction in milliGauss, should be automatically calculated
+        magbiasSoft[1] = 0.732;  // User environmental x-axis correction in milliGauss, should be automatically calculated
+        magbiasSoft[2] = 1.089;  // User environmental x-axis correction in milliGauss, should be automatically calculated
 // Magnetometer Hard Iron bias: -121.474  -103.950  214.249 mG
 // Magnetometer Soft Iron bias:   1.406    0.517    2.812 mG
 
@@ -336,6 +348,7 @@ static void magcalMPU9250(float * dest1, float * dest2) {
     int32_t mag_bias[3] = {0, 0, 0}, mag_scale[3] = {0, 0, 0};
     int16_t mag_max[3] = {0x8000, 0x8000, 0x8000}, mag_min[3] = {0x7FFF, 0x7FFF, 0x7FFF}, mag_temp[3] = {0, 0, 0};
 
+    BT_send_pkt((BT_packet_t){PKT_STRING, 14, (uint8_t*)"Start figure 8"});
     // printf("\n\nMag Calibration: Wave device in a figure eight until done!");
     _delay_ms(4000);
 
@@ -371,6 +384,7 @@ static void magcalMPU9250(float * dest1, float * dest2) {
     dest2[2] = avg_rad/((float)mag_scale[2]);
 
     // printf("Mag Calibration done!\n\n");
+    BT_send_pkt((BT_packet_t){PKT_STRING, 14, (uint8_t*)"Done calibrating"});
 }
 
 static void initMPU9250() {

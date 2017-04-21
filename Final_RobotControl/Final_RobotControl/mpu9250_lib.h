@@ -38,7 +38,8 @@
 #include <stdio.h>
 #include <math.h>
 #include "twi_lib.h"
-#include "home_finding_robot.h"
+#include "BT.h"
+#include "timer.h"
 
 //Magnetometer Registers
 #define AK8963_ADDRESS   0x0C

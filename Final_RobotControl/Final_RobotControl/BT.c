@@ -13,11 +13,17 @@ static int BT_buffer_overload;
 
 static void BT_buffer_add(BT_packet_t pkt);
 
+void BT_TimeoutTask(void) {
+    UCSR0B &= ~(1<<RXCIE0); // Disable Rx interrupt
+    stop();
+    BT_prepare_for_pkt();
+}
+
 ISR(USART_RX_vect) {
     uint8_t c;
     switch(BT_ready) {
         case 0: // Get header
-            setBTTimeout(-1);
+            setBTTimeout_ms(-1);
             c = usart_receive();
             BT_rcv_pkt.pkt_type = c>>4;
             BT_rcv_pkt.pkt_len = c & 0xf;
@@ -25,17 +31,17 @@ ISR(USART_RX_vect) {
                 BT_rcv_pkt.pkt_val = malloc(BT_rcv_pkt.pkt_len * sizeof(uint8_t) + (BT_rcv_pkt.pkt_type == PKT_STRING ? 1 : 0));
                 BT_index = 0;
                 BT_ready = 1;
-                setBTTimeout(100);
+                setBTTimeout_ms(100);
                 break;
             } else {
                 BT_rcv_pkt.pkt_val = 0;
                 BT_buffer_add(BT_rcv_pkt);
                 BT_prepare_for_pkt();
-                setBTTimeout(500);
+                setBTTimeout_ms(500);
                 break;
             }
         case 1: // Get data
-            setBTTimeout(-1);
+            setBTTimeout_ms(-1);
             c = usart_receive();
             BT_rcv_pkt.pkt_val[BT_index] = c;
             BT_index++;
@@ -44,9 +50,9 @@ ISR(USART_RX_vect) {
                     BT_rcv_pkt.pkt_val[BT_rcv_pkt.pkt_len] = 0;
                 BT_buffer_add(BT_rcv_pkt);
                 BT_prepare_for_pkt();
-                setBTTimeout(500);
+                setBTTimeout_ms(500);
             } else
-                setBTTimeout(100);
+                setBTTimeout_ms(100);
             break;
     }
 }
