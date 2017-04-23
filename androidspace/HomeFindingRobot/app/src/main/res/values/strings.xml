@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">HomeFindingRobot</string>
+    <string name="action_settings">BT Settings</string>
+    <string name="bluetooth_setup">Bluetooth Setup</string>
+    <string name="robot_control">Control the Robot!</string>
+    <string name="paired_devices">Paired devices:</string>
+    <string name="turn_off">"Turn Off"</string>
+    <string name="list_devices">"List devices"</string>
+    <string name="get_visible">"Get visible"</string>
+    <string name="turn_on">Turn On</string>
+    <string name="auto_run">Auto Run</string>
+    <string name="control_mode">Control Mode</string>
+    <string name="set_home">Set Home</string>
+    <string name="go_home">Go Home</string>
+    <string name="stop_robot">STOP</string>
+    <string name="distance_str">Distance:\n</string>
+    <string name="joy_val_str">Joystick:\n(</string>
+    <string name="pos_val_str">Position:\n(</string>
+    <string name="heading_str">Heading:\n</string>
+    <string name="drift_str">Drift:\n</string>
+</resources>
