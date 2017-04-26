@@ -28,7 +28,7 @@
 #define PKT_RIGHT        13
 #define PKT_LEFT         14
 
-#define BT_BUFFER_SIZE 15
+#define BT_BUFFER_SIZE 5
 
 typedef struct {
     uint8_t pkt_type; // 4 bits used

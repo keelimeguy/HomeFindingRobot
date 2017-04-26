@@ -17,40 +17,45 @@
 
 // Robot Mode Variables
 #define ROBOT_MODE_CONTROL_AND_AVOID 1
-#define ROBOT_MODE_AUTONOMOUS_AVOID 2
-#define ROBOT_MODE_AUTONOMOUS_HOME 3
+#define ROBOT_MODE_AUTONOMOUS_AVOID  2
+#define ROBOT_MODE_AUTONOMOUS_HOME   3
 
 // Robot autonomous state variables
-#define BUG_FORWARD_0 0
-#define BUG_FORWARD_1 1
-#define BUG_CHECK_CORNER_1 2
-#define BUG_CHECK_CORNER_2 3
-#define BUG_TURN_AT_CORNER 4
-#define BUG_TURN_AT_WALL_0 5
-#define BUG_TURN_AT_WALL_1 6
-#define BUG_TURN_AT_WALL_2 7
-#define BUG_TURN_AT_WALL_3 8
-#define BUG_FOLLOW_WALL 9
+#define BUG_FORWARD_0       0
+#define BUG_FORWARD_1       1
+#define BUG_CHECK_CORNER_1  2
+#define BUG_CHECK_CORNER_2  3
+#define BUG_TURN_AT_CORNER  4
+#define BUG_TURN_AT_WALL_0  5
+#define BUG_TURN_AT_WALL_1  6
+#define BUG_TURN_AT_WALL_2  7
+#define BUG_TURN_AT_WALL_3  8
+#define BUG_FOLLOW_WALL     9
 
 // Robot search state variables
-#define SEARCH_START 0
-#define SEARCH_UP 1
-#define SEARCH_DOWN 2
-#define SEARCH_LEFT 3
-#define SEARCH_RIGHT 4
-#define SEARCH_TURN_UP 5
-#define SEARCH_TURN_DOWN 6
-#define SEARCH_TURN_LEFT 7
-#define SEARCH_TURN_RIGHT 8
+#define SEARCH_START       0
+#define SEARCH_UP          1
+#define SEARCH_DOWN        2
+#define SEARCH_LEFT        3
+#define SEARCH_RIGHT       4
+#define SEARCH_TURN_UP     5
+#define SEARCH_TURN_DOWN   6
+#define SEARCH_TURN_LEFT   7
+#define SEARCH_TURN_RIGHT  8
+#define SEARCH_WAIT_UP     9
+#define SEARCH_WAIT_DOWN   10
+#define SEARCH_WAIT_LEFT   11
+#define SEARCH_WAIT_RIGHT  12
+#define SEARCH_OVERHEAD    13
 
 // Remote Variables
-#define JOY_X_MAX 910
-#define JOY_X_NORM 525
-#define JOY_X_MIN 50
-#define JOY_Y_MAX 810
-#define JOY_Y_NORM 515
-#define JOY_Y_MIN 70
-#define JOY_DELTA 10
+#define JOY_X_MAX   910
+#define JOY_X_NORM  525
+#define JOY_X_MIN   50
+#define JOY_Y_MAX   810
+#define JOY_Y_NORM  515
+#define JOY_Y_MIN   70
+#define JOY_DELTA   10
 
 void setup(uint8_t calibrate);
 

@@ -76,5 +76,8 @@ int main(void) {
             default:
                 stop();
         }
+
+        // Read line sensor
+        updatePosition();
     }
 }

@@ -516,114 +516,160 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
     int abs_x = (x < 0)? -x : x;
     int y = getIntPositionY();
     int abs_y = (y < 0)? -y : y;
-    switch (searchState) {
-        case SEARCH_START:
-            if (delay_done() && (x!=0 || y!=0)) {
-                if (abs_x > abs_y) {
-                    if (x > 0) {
-                        searchState = SEARCH_TURN_LEFT;
+    if (stopped != 2) {
+        switch (searchState) {
+            case SEARCH_START:
+                if (delay_done() && (x!=0 || y!=0)) {
+                    if (abs_x > abs_y) {
+                        if (x > 0) {
+                            searchState = SEARCH_TURN_LEFT;
+                        } else {
+                            searchState = SEARCH_TURN_RIGHT;
+                        }
                     } else {
-                        searchState = SEARCH_TURN_RIGHT;
-                    }
-                } else {
-                    if (y > 0) {
-                        searchState = SEARCH_TURN_DOWN;
-                    } else {
-                        searchState = SEARCH_TURN_UP;
+                        if (y > 0) {
+                            searchState = SEARCH_TURN_DOWN;
+                        } else {
+                            searchState = SEARCH_TURN_UP;
+                        }
                     }
                 }
-            }
-            break;
+                break;
 
-        case SEARCH_TURN_UP:
-            if (delay_done() && getDirection() != DIRECTION_UP) {
-                setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
-                rotateRight();
-                setDelay_ms(100);
-                updateDirection(DIRECTION_RIGHT);
-            } else if (delay_done() && getDirection() == DIRECTION_UP) {
-                stop();
-                setDelay_ms(2000);
-                lastX = x;
-                lastY = y;
-                searchState = SEARCH_UP;
-            }
-            break;
+            case SEARCH_TURN_UP:
+                if (delay_done() && getDirection() != DIRECTION_UP) {
+                    setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
+                    rotateRight();
+                    setDelay_ms(600);
+                    updateDirection(DIRECTION_RIGHT);
+                    searchState = SEARCH_WAIT_UP;
+                } else if (delay_done() && getDirection() == DIRECTION_UP) {
+                    stop();
+                    setDelay_ms(2000);
+                    lastX = x;
+                    lastY = y;
+                    searchState = SEARCH_UP;
+                }
+                break;
 
-        case SEARCH_TURN_RIGHT:
-            if (delay_done() && getDirection() != DIRECTION_RIGHT) {
-                setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
-                rotateRight();
-                setDelay_ms(100);
-                updateDirection(DIRECTION_RIGHT);
-            } else if (delay_done() && getDirection() == DIRECTION_RIGHT) {
-                stop();
-                setDelay_ms(2000);
-                lastX = x;
-                lastY = y;
-                searchState = SEARCH_RIGHT;
-            }
-            break;
+            case SEARCH_WAIT_UP:
+                if (delay_done()) {
+                    stop();
+                    setDelay_ms(2000);
+                    searchState = SEARCH_TURN_UP;
+                }
+                break;
 
-        case SEARCH_TURN_DOWN:
-            if (delay_done() && getDirection() != DIRECTION_DOWN) {
-                setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
-                rotateRight();
-                setDelay_ms(100);
-                updateDirection(DIRECTION_RIGHT);
-            } else if (delay_done() && getDirection() == DIRECTION_DOWN) {
-                stop();
-                setDelay_ms(2000);
-                lastX = x;
-                lastY = y;
-                searchState = SEARCH_DOWN;
-            }
-            break;
+            case SEARCH_TURN_RIGHT:
+                if (delay_done() && getDirection() != DIRECTION_RIGHT) {
+                    setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
+                    rotateRight();
+                    setDelay_ms(600);
+                    updateDirection(DIRECTION_RIGHT);
+                    searchState = SEARCH_WAIT_RIGHT;
+                } else if (delay_done() && getDirection() == DIRECTION_RIGHT) {
+                    stop();
+                    setDelay_ms(2000);
+                    lastX = x;
+                    lastY = y;
+                    searchState = SEARCH_RIGHT;
+                }
+                break;
 
-        case SEARCH_TURN_LEFT:
-            if (delay_done() && getDirection() != DIRECTION_LEFT) {
-                setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
-                rotateRight();
-                setDelay_ms(100);
-                updateDirection(DIRECTION_RIGHT);
-            } else if (delay_done() && getDirection() == DIRECTION_LEFT) {
-                stop();
-                setDelay_ms(2000);
-                lastX = x;
-                lastY = y;
-                searchState = SEARCH_LEFT;
-            }
-            break;
+            case SEARCH_WAIT_RIGHT:
+                if (delay_done()) {
+                    stop();
+                    setDelay_ms(2000);
+                    searchState = SEARCH_TURN_RIGHT;
+                }
+                break;
 
-        case SEARCH_UP:
-        case SEARCH_DOWN:
-            if (servoSweepDistanceTask() < 30) {
-                stop();
-            } else if (delay_done() && x == lastX) {
-                setSpeed((MAX_SPEED+MIN_SPEED)*.6, (MAX_SPEED+MIN_SPEED)*.6);
-                moveForward();
-                setDelay_ms(100);
-            } else if (delay_done() && x != lastX) {
-                stop();
-                setDelay_ms(2000);
-                searchState = SEARCH_START;
-            }
-            break;
+            case SEARCH_TURN_DOWN:
+                if (delay_done() && getDirection() != DIRECTION_DOWN) {
+                    setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
+                    rotateRight();
+                    setDelay_ms(600);
+                    updateDirection(DIRECTION_RIGHT);
+                    searchState = SEARCH_WAIT_DOWN;
+                } else if (delay_done() && getDirection() == DIRECTION_DOWN) {
+                    stop();
+                    setDelay_ms(2000);
+                    lastX = x;
+                    lastY = y;
+                    searchState = SEARCH_DOWN;
+                }
+                break;
 
-        case SEARCH_LEFT:
-        case SEARCH_RIGHT:
-            if (servoSweepDistanceTask() < 30) {
-                stop();
-            } else if (delay_done() && y == lastY) {
-                setSpeed((MAX_SPEED+MIN_SPEED)*.6, (MAX_SPEED+MIN_SPEED)*.6);
-                moveForward();
-                setDelay_ms(100);
-            } else if (delay_done() && y != lastY) {
-                stop();
-                setDelay_ms(2000);
-                searchState = SEARCH_START;
-            }
-            break;
+            case SEARCH_WAIT_DOWN:
+                if (delay_done()) {
+                    stop();
+                    setDelay_ms(2000);
+                    searchState = SEARCH_TURN_DOWN;
+                }
+                break;
+
+            case SEARCH_TURN_LEFT:
+                if (delay_done() && getDirection() != DIRECTION_LEFT) {
+                    setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
+                    rotateRight();
+                    setDelay_ms(600);
+                    updateDirection(DIRECTION_RIGHT);
+                    searchState = SEARCH_WAIT_LEFT;
+                } else if (delay_done() && getDirection() == DIRECTION_LEFT) {
+                    stop();
+                    setDelay_ms(2000);
+                    lastX = x;
+                    lastY = y;
+                    searchState = SEARCH_LEFT;
+                }
+                break;
+
+            case SEARCH_WAIT_LEFT:
+                if (delay_done()) {
+                    stop();
+                    setDelay_ms(2000);
+                    searchState = SEARCH_TURN_LEFT;
+                }
+                break;
+
+            case SEARCH_UP:
+            case SEARCH_DOWN:
+                if (servoSweepDistanceTask() < 30) {
+                    stop();
+                } else if (delay_done() && y == lastY && y != 0) {
+                    setSpeed(.1+MIN_SPEED, .1+MIN_SPEED);
+                    moveForward();
+                } else if (delay_done() && y != lastY) {
+                    setDelay_ms(400);
+                    searchState = SEARCH_OVERHEAD;
+                }
+                break;
+
+            case SEARCH_LEFT:
+            case SEARCH_RIGHT:
+                if (servoSweepDistanceTask() < 30) {
+                    stop();
+                } else if (delay_done() && x == lastX && x != 0) {
+                    setSpeed(.1+MIN_SPEED, .1+MIN_SPEED);
+                    moveForward();
+                } else if (delay_done() && x != lastX) {
+                    setDelay_ms(400);
+                    searchState = SEARCH_OVERHEAD;
+                }
+                break;
+
+            case SEARCH_OVERHEAD:
+                if (servoSweepDistanceTask() < 30) {
+                    stop();
+                } else if (delay_done()) {
+                    stop();
+                    setDelay_ms(2000);
+                    searchState = SEARCH_START;
+                }
+                break;
+        }
+    } else {
+        stop();
     }
     return ROBOT_MODE_AUTONOMOUS_HOME;
 }
