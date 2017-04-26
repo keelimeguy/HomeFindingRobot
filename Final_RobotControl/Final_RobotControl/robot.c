@@ -188,6 +188,8 @@ uint8_t robot_control_and_avoid_task(double correction, float heading, uint8_t* 
             outstr[i] = ' ';
         dtostrf(heading, 3, 0, outstr);
         BT_send_pkt((BT_packet_t){PKT_HEADING, 15, outstr});
+        for (int i = 0; i < 15; i++)
+            outstr[i] = ' ';
         dtostrf(correction, 5, 0, outstr);
         BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
         BT_send_pkt((BT_packet_t){PKT_POSITION, 2, (uint8_t[2]){getPositionX(), getPositionY()}});
@@ -279,12 +281,12 @@ uint8_t robot_autonomous_avoid_task(double correction, float heading, uint8_t* s
 
         for (int i = 0; i < 15; i++)
             outstr[i] = ' ';
-        dtostrf(correction, 5, 0, outstr);
-        BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
-        for (int i = 0; i < 15; i++)
-            outstr[i] = ' ';
         dtostrf(heading, 3, 0, outstr);
         BT_send_pkt((BT_packet_t){PKT_HEADING, 15, outstr});
+        for (int i = 0; i < 15; i++)
+            outstr[i] = ' ';
+        dtostrf(correction, 5, 0, outstr);
+        BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
         BT_send_pkt((BT_packet_t){PKT_POSITION, 2, (uint8_t[2]){getPositionX(), getPositionY()}});
         int dist = (int)servoSweepDistanceTask();
         BT_send_pkt((BT_packet_t){PKT_DISTANCE, 2, (uint8_t[2]){(dist>>8) & 0xff, dist & 0xff}});
@@ -476,6 +478,18 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
         }
 
         BT_send_pkt(pkt); // Respond by sending the received packet over bluetooth
+
+        for (int i = 0; i < 15; i++)
+            outstr[i] = ' ';
+        dtostrf(heading, 3, 0, outstr);
+        BT_send_pkt((BT_packet_t){PKT_HEADING, 15, outstr});
+        for (int i = 0; i < 15; i++)
+            outstr[i] = ' ';
+        dtostrf(correction, 5, 0, outstr);
+        BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
+        BT_send_pkt((BT_packet_t){PKT_POSITION, 2, (uint8_t[2]){getPositionX(), getPositionY()}});
+        int dist = (int)servoSweepDistanceTask();
+        BT_send_pkt((BT_packet_t){PKT_DISTANCE, 2, (uint8_t[2]){(dist>>8) & 0xff, dist & 0xff}});
     } else {
         stop();
         stopped = 2;
@@ -512,7 +526,7 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
                 updateDirection(DIRECTION_RIGHT);
             } else if (delay_done() && getDirection() == DIRECTION_UP) {
                 stop();
-                setDelay_ms(1000);
+                setDelay_ms(2000);
                 lastX = x;
                 lastY = y;
                 searchState = SEARCH_UP;
@@ -527,7 +541,7 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
                 updateDirection(DIRECTION_RIGHT);
             } else if (delay_done() && getDirection() == DIRECTION_RIGHT) {
                 stop();
-                setDelay_ms(1000);
+                setDelay_ms(2000);
                 lastX = x;
                 lastY = y;
                 searchState = SEARCH_RIGHT;
@@ -542,7 +556,7 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
                 updateDirection(DIRECTION_RIGHT);
             } else if (delay_done() && getDirection() == DIRECTION_DOWN) {
                 stop();
-                setDelay_ms(1000);
+                setDelay_ms(2000);
                 lastX = x;
                 lastY = y;
                 searchState = SEARCH_DOWN;
@@ -557,7 +571,7 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
                 updateDirection(DIRECTION_RIGHT);
             } else if (delay_done() && getDirection() == DIRECTION_LEFT) {
                 stop();
-                setDelay_ms(1000);
+                setDelay_ms(2000);
                 lastX = x;
                 lastY = y;
                 searchState = SEARCH_LEFT;
@@ -566,26 +580,30 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
 
         case SEARCH_UP:
         case SEARCH_DOWN:
-            if (delay_done() && x == lastX) {
+            if (servoSweepDistanceTask() < 30) {
+                stop();
+            } else if (delay_done() && x == lastX) {
                 setSpeed((MAX_SPEED+MIN_SPEED)*.6, (MAX_SPEED+MIN_SPEED)*.6);
                 moveForward();
                 setDelay_ms(100);
             } else if (delay_done() && x != lastX) {
                 stop();
-                setDelay_ms(1000);
+                setDelay_ms(2000);
                 searchState = SEARCH_START;
             }
             break;
 
         case SEARCH_LEFT:
         case SEARCH_RIGHT:
-            if (delay_done() && y == lastY) {
+            if (servoSweepDistanceTask() < 30) {
+                stop();
+            } else if (delay_done() && y == lastY) {
                 setSpeed((MAX_SPEED+MIN_SPEED)*.6, (MAX_SPEED+MIN_SPEED)*.6);
                 moveForward();
                 setDelay_ms(100);
             } else if (delay_done() && y != lastY) {
                 stop();
-                setDelay_ms(1000);
+                setDelay_ms(2000);
                 searchState = SEARCH_START;
             }
             break;
