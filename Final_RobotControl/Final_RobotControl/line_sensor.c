@@ -11,6 +11,14 @@ static void ADC_convert(uint8_t ADC_mux);
 static double readADC(double Aref);
 static uint8_t switchDebounce(uint8_t switchPressed);
 
+int getIntPositionX() {
+    return positionX;
+}
+
+int getIntPositionY() {
+    return positionY;
+}
+
 uint8_t getPositionX() {
     int posX = positionX;
     uint8_t ret = 0;
@@ -42,6 +50,51 @@ void setPosition(int x, int y) {
 
 void setDirection(int dir) {
     direction = dir;
+}
+
+int getDirection() {
+    return direction;
+}
+
+void updateDirection(int dir) {
+    if (dir == DIRECTION_RIGHT) {
+        switch (direction) {
+            case DIRECTION_UP:
+                direction = DIRECTION_RIGHT;
+                break;
+
+            case DIRECTION_RIGHT:
+                direction = DIRECTION_DOWN;
+                break;
+
+            case DIRECTION_DOWN:
+                direction = DIRECTION_LEFT;
+                break;
+
+            case DIRECTION_LEFT:
+                direction = DIRECTION_UP;
+                break;
+        }
+    }
+    else if (dir == DIRECTION_LEFT) {
+        switch (direction) {
+            case DIRECTION_UP:
+                direction = DIRECTION_LEFT;
+                break;
+
+            case DIRECTION_LEFT:
+                direction = DIRECTION_DOWN;
+                break;
+
+            case DIRECTION_DOWN:
+                direction = DIRECTION_RIGHT;
+                break;
+
+            case DIRECTION_RIGHT:
+                direction = DIRECTION_UP;
+                break;
+        }
+    }
 }
 
 void line_sensor_init(void) {

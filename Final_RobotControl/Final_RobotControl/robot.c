@@ -8,6 +8,8 @@ static char outstr[15];
 static uint8_t stopped = 0;
 static double baseSpeed = 0, rightBias = 0, leftBias = 0;
 static int bugState = BUG_FORWARD_0;
+static int searchState = SEARCH_START;
+static int lastX = 0, lastY = 0;
 static double bugDist;
 
 void setup(uint8_t calibrate) {
@@ -163,6 +165,7 @@ uint8_t robot_control_and_avoid_task(double correction, float heading, uint8_t* 
         } else if (pkt.pkt_type == PKT_SET_HOME) {
             stop();
             setPosition(0,0);
+            setDirection(DIRECTION_UP);
         } else if (pkt.pkt_type == PKT_GO_HOME) {
             stop();
             servoSweepOff();
@@ -171,7 +174,12 @@ uint8_t robot_control_and_avoid_task(double correction, float heading, uint8_t* 
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            searchState = SEARCH_START;
             return ROBOT_MODE_AUTONOMOUS_HOME;
+        } else if (pkt.pkt_type == PKT_RIGHT) {
+            updateDirection(DIRECTION_RIGHT);
+        } else if (pkt.pkt_type == PKT_LEFT) {
+            updateDirection(DIRECTION_LEFT);
         }
 
         BT_send_pkt(pkt); // Respond by sending the received packet over bluetooth
@@ -250,6 +258,7 @@ uint8_t robot_autonomous_avoid_task(double correction, float heading, uint8_t* s
         } else if (pkt.pkt_type == PKT_SET_HOME) {
             stop();
             setPosition(0,0);
+            setDirection(DIRECTION_UP);
         } else if (pkt.pkt_type == PKT_GO_HOME) {
             stop();
             servoSweepOff();
@@ -258,7 +267,12 @@ uint8_t robot_autonomous_avoid_task(double correction, float heading, uint8_t* s
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            searchState = SEARCH_START;
             return ROBOT_MODE_AUTONOMOUS_HOME;
+        } else if (pkt.pkt_type == PKT_RIGHT) {
+            updateDirection(DIRECTION_RIGHT);
+        } else if (pkt.pkt_type == PKT_LEFT) {
+            updateDirection(DIRECTION_LEFT);
         }
 
         BT_send_pkt(pkt); // Respond by sending the received packet over bluetooth
@@ -444,6 +458,7 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
         } else if (pkt.pkt_type == PKT_SET_HOME) {
             stop();
             setPosition(0,0);
+            setDirection(DIRECTION_UP);
         } else if (pkt.pkt_type == PKT_GO_HOME) {
             stop();
             servoSweepOff();
@@ -452,12 +467,128 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            searchState = SEARCH_START;
             return ROBOT_MODE_AUTONOMOUS_HOME;
+        } else if (pkt.pkt_type == PKT_RIGHT) {
+            updateDirection(DIRECTION_RIGHT);
+        } else if (pkt.pkt_type == PKT_LEFT) {
+            updateDirection(DIRECTION_LEFT);
         }
+
         BT_send_pkt(pkt); // Respond by sending the received packet over bluetooth
     } else {
         stop();
         stopped = 2;
+    }
+
+    int x = getIntPositionX();
+    int abs_x = (x < 0)? -x : x;
+    int y = getIntPositionY();
+    int abs_y = (y < 0)? -y : y;
+    switch (searchState) {
+        case SEARCH_START:
+            if (delay_done() && (x!=0 || y!=0)) {
+                if (abs_x > abs_y) {
+                    if (x > 0) {
+                        searchState = SEARCH_TURN_LEFT;
+                    } else {
+                        searchState = SEARCH_TURN_RIGHT;
+                    }
+                } else {
+                    if (y > 0) {
+                        searchState = SEARCH_TURN_DOWN;
+                    } else {
+                        searchState = SEARCH_TURN_UP;
+                    }
+                }
+            }
+            break;
+
+        case SEARCH_TURN_UP:
+            if (delay_done() && getDirection() != DIRECTION_UP) {
+                setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
+                rotateRight();
+                setDelay_ms(100);
+                updateDirection(DIRECTION_RIGHT);
+            } else if (delay_done() && getDirection() == DIRECTION_UP) {
+                stop();
+                setDelay_ms(1000);
+                lastX = x;
+                lastY = y;
+                searchState = SEARCH_UP;
+            }
+            break;
+
+        case SEARCH_TURN_RIGHT:
+            if (delay_done() && getDirection() != DIRECTION_RIGHT) {
+                setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
+                rotateRight();
+                setDelay_ms(100);
+                updateDirection(DIRECTION_RIGHT);
+            } else if (delay_done() && getDirection() == DIRECTION_RIGHT) {
+                stop();
+                setDelay_ms(1000);
+                lastX = x;
+                lastY = y;
+                searchState = SEARCH_RIGHT;
+            }
+            break;
+
+        case SEARCH_TURN_DOWN:
+            if (delay_done() && getDirection() != DIRECTION_DOWN) {
+                setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
+                rotateRight();
+                setDelay_ms(100);
+                updateDirection(DIRECTION_RIGHT);
+            } else if (delay_done() && getDirection() == DIRECTION_DOWN) {
+                stop();
+                setDelay_ms(1000);
+                lastX = x;
+                lastY = y;
+                searchState = SEARCH_DOWN;
+            }
+            break;
+
+        case SEARCH_TURN_LEFT:
+            if (delay_done() && getDirection() != DIRECTION_LEFT) {
+                setSpeed((MAX_SPEED+MIN_SPEED)*.4, (MAX_SPEED+MIN_SPEED)*.4);
+                rotateRight();
+                setDelay_ms(100);
+                updateDirection(DIRECTION_RIGHT);
+            } else if (delay_done() && getDirection() == DIRECTION_LEFT) {
+                stop();
+                setDelay_ms(1000);
+                lastX = x;
+                lastY = y;
+                searchState = SEARCH_LEFT;
+            }
+            break;
+
+        case SEARCH_UP:
+        case SEARCH_DOWN:
+            if (delay_done() && x == lastX) {
+                setSpeed((MAX_SPEED+MIN_SPEED)*.6, (MAX_SPEED+MIN_SPEED)*.6);
+                moveForward();
+                setDelay_ms(100);
+            } else if (delay_done() && x != lastX) {
+                stop();
+                setDelay_ms(1000);
+                searchState = SEARCH_START;
+            }
+            break;
+
+        case SEARCH_LEFT:
+        case SEARCH_RIGHT:
+            if (delay_done() && y == lastY) {
+                setSpeed((MAX_SPEED+MIN_SPEED)*.6, (MAX_SPEED+MIN_SPEED)*.6);
+                moveForward();
+                setDelay_ms(100);
+            } else if (delay_done() && y != lastY) {
+                stop();
+                setDelay_ms(1000);
+                searchState = SEARCH_START;
+            }
+            break;
     }
 
     stop();

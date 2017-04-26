@@ -51,6 +51,9 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
     static final int  PKT_STOP         = 9;
     static final int  PKT_POSITION     = 10;
     static final int  PKT_CONTROL_MODE = 11;
+    static final int  PKT_LINE         = 12;
+    static final int  PKT_RIGHT        = 13;
+    static final int  PKT_LEFT         = 14;
 
     int joystickValueX = 0, joystickValueY = 0, joystickRcvX = 0, joystickRcvY = 0,distance = 0, positionX = 0, positionY = 0;
     double heading = 0, drift = 0;
@@ -183,6 +186,14 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
         sendMessage(PKT_STOP, "");
     }
 
+    public void left(View v) {
+        sendMessage(PKT_LEFT, "");
+    }
+
+    public void right(View v) {
+        sendMessage(PKT_RIGHT, "");
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -259,9 +270,7 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
                                     result = "";
                                 } else break;
                             } else {
-                                if (type == PKT_STRING) {
-                                    result += (char) bytesRead;
-                                } else if (type == PKT_DISTANCE) {
+                                if (type == PKT_DISTANCE) {
                                     if (cur == 0)
                                         val = bytesRead<<8;
                                     else {
@@ -278,7 +287,7 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
                                         val = bytesRead;
                                     else {
                                         val |= bytesRead<<8;
-                                        joystickRcvX = bytesRead;
+                                        joystickRcvX = val;
                                         handler.post(new Runnable() {
                                             public void run() {
                                                 joystick_textview.setText("" + getString(R.string.joy_val_str) + joystickRcvX + ", " + joystickRcvY + ")");
@@ -291,7 +300,7 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
                                         val = bytesRead;
                                     else {
                                         val |= bytesRead<<8;
-                                        joystickRcvY = bytesRead;
+                                        joystickRcvY = val;
                                         handler.post(new Runnable() {
                                             public void run() {
                                                 joystick_textview.setText("" + getString(R.string.joy_val_str) + joystickRcvX + ", " + joystickRcvY + ")");
@@ -321,16 +330,16 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
                                     }
                                 } else if (type == PKT_POSITION) {
                                     if (cur == 0)
-                                        positionX = bytesRead;//((bytesRead&0x80)!=0 ? -1:1)*(bytesRead&0x7f);
+                                        positionX = bytesRead;//((bytesRead&0x80)!=0 ? -1:1)*(int)(bytesRead&0x7f);
                                     else {
-                                        positionY = bytesRead;//((bytesRead&0x80)!=0 ? -1:1)*(bytesRead&0x7f);
+                                        positionY = bytesRead;//((bytesRead&0x80)!=0 ? -1:1)*(int)(bytesRead&0x7f);
                                         handler.post(new Runnable() {
                                             public void run() {
                                                 position_textview.setText("" + getString(R.string.pos_val_str) + positionX + ", " + positionY + ")");
                                             }
                                         });
                                     }
-                                }
+                                } else result += (char) bytesRead; // PKT_STRING and others
 
                                 cur++;
                                 if (cur == length) {
@@ -341,8 +350,8 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
                         }
                         if (type == PKT_STRING) {
                             if (result.equals("begin")){
-                                sendMessage(PKT_JOYSTICK_X, "" + (char) (joystickValueX & 0xff) + "" + (char) ((joystickValueX >> 8) & 0xff));
-                                sendMessage(PKT_JOYSTICK_Y, "" + (char) (joystickValueY & 0xff) + "" + (char) ((joystickValueY >> 8) & 0xff));
+                                sendMessage(PKT_JOYSTICK_X, "" + (char) ((int)JOY_X_NORM & 0xff) + "" + (char) (((int)JOY_X_NORM >> 8) & 0xff));
+                                sendMessage(PKT_JOYSTICK_Y, "" + (char) ((int)JOY_Y_NORM & 0xff) + "" + (char) (((int)JOY_Y_NORM >> 8) & 0xff));
                             }
                             sb.append(result);
 

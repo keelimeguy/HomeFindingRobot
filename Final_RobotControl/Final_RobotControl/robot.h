@@ -32,6 +32,17 @@
 #define BUG_TURN_AT_WALL_3 8
 #define BUG_FOLLOW_WALL 9
 
+// Robot search state variables
+#define SEARCH_START 0
+#define SEARCH_UP 1
+#define SEARCH_DOWN 2
+#define SEARCH_LEFT 3
+#define SEARCH_RIGHT 4
+#define SEARCH_TURN_UP 5
+#define SEARCH_TURN_DOWN 6
+#define SEARCH_TURN_LEFT 7
+#define SEARCH_TURN_RIGHT 8
+
 // Remote Variables
 #define JOY_X_MAX 910
 #define JOY_X_NORM 525

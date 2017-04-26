@@ -25,6 +25,8 @@
 #define PKT_POSITION     10
 #define PKT_CONTROL_MODE 11
 #define PKT_LINE         12
+#define PKT_RIGHT        13
+#define PKT_LEFT         14
 
 #define BT_BUFFER_SIZE 15
 

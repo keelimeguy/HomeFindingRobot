@@ -28,3 +28,4 @@ uint8_t getPositionY(void);
 void setPosition(int x, int y);
 void setDirection(int dir);
 double updatePosition(void);
+void updateDirection(int dir);

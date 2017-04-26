@@ -74,7 +74,7 @@ int main(void) {
                 break;
 
             default:
-                stop()
+                stop();
         }
     }
 }
