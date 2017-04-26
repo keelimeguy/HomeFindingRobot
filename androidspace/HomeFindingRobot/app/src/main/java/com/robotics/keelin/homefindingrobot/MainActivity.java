@@ -55,7 +55,9 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
     static final int  PKT_RIGHT        = 13;
     static final int  PKT_LEFT         = 14;
 
-    int joystickValueX = 0, joystickValueY = 0, joystickRcvX = 0, joystickRcvY = 0,distance = 0, positionX = 0, positionY = 0;
+    static final int  MAX_QUEUE        = 4;
+
+    int joystickValueX = (int)JOY_X_NORM, joystickValueY = (int)JOY_Y_NORM, joystickRcvX = 0, joystickRcvY = 0,distance = 0, positionX = 0, positionY = 0;
     double heading = 0, drift = 0;
     ArrayList<String> sendQueue;
 
@@ -225,7 +227,7 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
     }
 
     protected void sendMessage(int type, String message) {
-        sendQueue.add(type+":"+message);
+        if (sendQueue.size()<MAX_QUEUE) sendQueue.add(type+":"+message);
     }
 
     @Override
@@ -330,9 +332,9 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
                                     }
                                 } else if (type == PKT_POSITION) {
                                     if (cur == 0)
-                                        positionX = bytesRead;//((bytesRead&0x80)!=0 ? -1:1)*(int)(bytesRead&0x7f);
+                                        positionX = ((bytesRead&0x80)!=0 ? -1:1)*(bytesRead&0x7f);
                                     else {
-                                        positionY = bytesRead;//((bytesRead&0x80)!=0 ? -1:1)*(int)(bytesRead&0x7f);
+                                        positionY = ((bytesRead&0x80)!=0 ? -1:1)*(bytesRead&0x7f);
                                         handler.post(new Runnable() {
                                             public void run() {
                                                 position_textview.setText("" + getString(R.string.pos_val_str) + positionX + ", " + positionY + ")");
@@ -391,7 +393,6 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
                         for (char c : msg.toCharArray())
                             os.write(c);
                         os.flush();
-                        Thread.sleep(200);
                     } catch (Exception e) {
                         e.printStackTrace();
                         CONTINUE_READ_WRITE = false;
@@ -405,6 +406,8 @@ public class MainActivity extends AppCompatActivity implements JoystickView.Joys
     public void onJoystickMoved(float xPercent, float yPercent, int id) {
         switch (id) {
             case R.id.joystick:
+                xPercent = (float)((int)(xPercent*10))/(float)10;
+                yPercent = (float)((int)(yPercent*10))/(float)10;
                 if (xPercent > 0)
                     joystickValueX = (int) (xPercent * (JOY_X_MAX - JOY_X_NORM) + JOY_X_NORM);
                 else

@@ -5,7 +5,7 @@ static float yaw, pitch, roll;
 // To convert double to string for displaying
 static char outstr[15];
 
-static uint8_t stopped = 0;
+static uint8_t stopped = 0, verbose = 0;
 static double baseSpeed = 0, rightBias = 0, leftBias = 0;
 static int bugState = BUG_FORWARD_0;
 static int searchState = SEARCH_START;
@@ -96,6 +96,7 @@ uint8_t robot_control_and_avoid_task(double correction, float heading, uint8_t* 
                 baseSpeed = 0.0;
             }
             if (straight) {
+                correction = correction*baseSpeed;
                 if (correction > 0) {
                     rightBias = correction;
                     leftBias = 0.0;
@@ -131,6 +132,7 @@ uint8_t robot_control_and_avoid_task(double correction, float heading, uint8_t* 
                     *straight = 1;
                     start_counting(0);
                 }
+                correction = correction*baseSpeed;
                 if (straight && correction > 0) {
                     rightBias = correction;
                     leftBias = 0.0;
@@ -151,6 +153,7 @@ uint8_t robot_control_and_avoid_task(double correction, float heading, uint8_t* 
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            verbose = 1;
             return ROBOT_MODE_AUTONOMOUS_AVOID;
         } else if (pkt.pkt_type == PKT_CONTROL_MODE) {
             stop();
@@ -161,6 +164,7 @@ uint8_t robot_control_and_avoid_task(double correction, float heading, uint8_t* 
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            verbose = 1;
             return ROBOT_MODE_CONTROL_AND_AVOID;
         } else if (pkt.pkt_type == PKT_SET_HOME) {
             stop();
@@ -174,6 +178,7 @@ uint8_t robot_control_and_avoid_task(double correction, float heading, uint8_t* 
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            verbose = 1;
             searchState = SEARCH_START;
             return ROBOT_MODE_AUTONOMOUS_HOME;
         } else if (pkt.pkt_type == PKT_RIGHT) {
@@ -184,15 +189,17 @@ uint8_t robot_control_and_avoid_task(double correction, float heading, uint8_t* 
 
         BT_send_pkt(pkt); // Respond by sending the received packet over bluetooth
 
-        for (int i = 0; i < 15; i++)
-            outstr[i] = ' ';
-        dtostrf(heading, 3, 0, outstr);
-        BT_send_pkt((BT_packet_t){PKT_HEADING, 15, outstr});
-        for (int i = 0; i < 15; i++)
-            outstr[i] = ' ';
-        dtostrf(correction, 5, 0, outstr);
-        BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
-        BT_send_pkt((BT_packet_t){PKT_POSITION, 2, (uint8_t[2]){getPositionX(), getPositionY()}});
+        if (verbose) {
+            for (int i = 0; i < 15; i++)
+                outstr[i] = ' ';
+            dtostrf(heading, 3, 0, outstr);
+            BT_send_pkt((BT_packet_t){PKT_HEADING, 15, outstr});
+            for (int i = 0; i < 15; i++)
+                outstr[i] = ' ';
+            dtostrf((double)((int)correction*1000), 7, 0, outstr);
+            BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
+            BT_send_pkt((BT_packet_t){PKT_POSITION, 2, (uint8_t[2]){getPositionX(), getPositionY()}});
+        }
         int dist = (int)servoSweepDistanceTask();
         BT_send_pkt((BT_packet_t){PKT_DISTANCE, 2, (uint8_t[2]){(dist>>8) & 0xff, dist & 0xff}});
     }
@@ -246,6 +253,7 @@ uint8_t robot_autonomous_avoid_task(double correction, float heading, uint8_t* s
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            verbose = 1;
             return ROBOT_MODE_AUTONOMOUS_AVOID;
         } else if (pkt.pkt_type == PKT_CONTROL_MODE) {
             stop();
@@ -256,6 +264,7 @@ uint8_t robot_autonomous_avoid_task(double correction, float heading, uint8_t* s
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            verbose = 1;
             return ROBOT_MODE_CONTROL_AND_AVOID;
         } else if (pkt.pkt_type == PKT_SET_HOME) {
             stop();
@@ -269,6 +278,7 @@ uint8_t robot_autonomous_avoid_task(double correction, float heading, uint8_t* s
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            verbose = 1;
             searchState = SEARCH_START;
             return ROBOT_MODE_AUTONOMOUS_HOME;
         } else if (pkt.pkt_type == PKT_RIGHT) {
@@ -279,15 +289,17 @@ uint8_t robot_autonomous_avoid_task(double correction, float heading, uint8_t* s
 
         BT_send_pkt(pkt); // Respond by sending the received packet over bluetooth
 
-        for (int i = 0; i < 15; i++)
-            outstr[i] = ' ';
-        dtostrf(heading, 3, 0, outstr);
-        BT_send_pkt((BT_packet_t){PKT_HEADING, 15, outstr});
-        for (int i = 0; i < 15; i++)
-            outstr[i] = ' ';
-        dtostrf(correction, 5, 0, outstr);
-        BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
-        BT_send_pkt((BT_packet_t){PKT_POSITION, 2, (uint8_t[2]){getPositionX(), getPositionY()}});
+        if (verbose) {
+            for (int i = 0; i < 15; i++)
+                outstr[i] = ' ';
+            dtostrf(heading, 3, 0, outstr);
+            BT_send_pkt((BT_packet_t){PKT_HEADING, 15, outstr});
+            for (int i = 0; i < 15; i++)
+                outstr[i] = ' ';
+            dtostrf((double)((int)correction*1000), 7, 0, outstr);
+            BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
+            BT_send_pkt((BT_packet_t){PKT_POSITION, 2, (uint8_t[2]){getPositionX(), getPositionY()}});
+        }
         int dist = (int)servoSweepDistanceTask();
         BT_send_pkt((BT_packet_t){PKT_DISTANCE, 2, (uint8_t[2]){(dist>>8) & 0xff, dist & 0xff}});
     }
@@ -446,6 +458,7 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            verbose = 1;
             return ROBOT_MODE_AUTONOMOUS_AVOID;
         } else if (pkt.pkt_type == PKT_CONTROL_MODE) {
             stop();
@@ -456,6 +469,7 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            verbose = 1;
             return ROBOT_MODE_CONTROL_AND_AVOID;
         } else if (pkt.pkt_type == PKT_SET_HOME) {
             stop();
@@ -469,6 +483,7 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
             leftBias = 0;
             rightBias = 0;
             stopped = 1;
+            verbose = 1;
             searchState = SEARCH_START;
             return ROBOT_MODE_AUTONOMOUS_HOME;
         } else if (pkt.pkt_type == PKT_RIGHT) {
@@ -479,15 +494,17 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
 
         BT_send_pkt(pkt); // Respond by sending the received packet over bluetooth
 
-        for (int i = 0; i < 15; i++)
-            outstr[i] = ' ';
-        dtostrf(heading, 3, 0, outstr);
-        BT_send_pkt((BT_packet_t){PKT_HEADING, 15, outstr});
-        for (int i = 0; i < 15; i++)
-            outstr[i] = ' ';
-        dtostrf(correction, 5, 0, outstr);
-        BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
-        BT_send_pkt((BT_packet_t){PKT_POSITION, 2, (uint8_t[2]){getPositionX(), getPositionY()}});
+        if (verbose) {
+            for (int i = 0; i < 15; i++)
+                outstr[i] = ' ';
+            dtostrf(heading, 3, 0, outstr);
+            BT_send_pkt((BT_packet_t){PKT_HEADING, 15, outstr});
+            for (int i = 0; i < 15; i++)
+                outstr[i] = ' ';
+            dtostrf((double)((int)correction*1000), 7, 0, outstr);
+            BT_send_pkt((BT_packet_t){PKT_DRIFT, 15, outstr});
+            BT_send_pkt((BT_packet_t){PKT_POSITION, 2, (uint8_t[2]){getPositionX(), getPositionY()}});
+        }
         int dist = (int)servoSweepDistanceTask();
         BT_send_pkt((BT_packet_t){PKT_DISTANCE, 2, (uint8_t[2]){(dist>>8) & 0xff, dist & 0xff}});
     } else {
@@ -608,7 +625,5 @@ uint8_t robot_autonomous_home_task(double correction, float heading, uint8_t* st
             }
             break;
     }
-
-    stop();
     return ROBOT_MODE_AUTONOMOUS_HOME;
 }
