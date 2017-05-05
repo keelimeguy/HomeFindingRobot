@@ -1,3 +1,6 @@
+#ifndef USART_H
+#define USART_H
+
 #include <avr/io.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -9,3 +12,5 @@
 void usart_init(void);
 void usart_transmit(char c);
 char usart_receive(void);
+
+#endif
