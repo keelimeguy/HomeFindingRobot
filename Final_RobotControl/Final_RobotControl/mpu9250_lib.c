@@ -1,4 +1,10 @@
-// Modified for personal project by Keelin Wheeler in March 2017
+
+
+// Modified for personal project by Keelin Wheeler in March 2017:
+//  This code is converted to C from an arduino library at https://github.com/kriswiner/MPU-9250
+//  The details of this code need not be discussed or commented in much detail,
+//    what the code does is get readings from the IMU and converts to yaw, pitch, roll format
+
 
 /* MPU9250 Basic Example Code
  by: Kris Winer

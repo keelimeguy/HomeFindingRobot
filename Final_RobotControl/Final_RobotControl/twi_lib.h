@@ -1,3 +1,11 @@
+
+
+// Modified for personal project by Keelin Wheeler in March 2017:
+//  This code is a modified version of the library at http://playground.arduino.cc/ComponentLib/Ps2mouse
+//  The details of this code need not be discussed or commented in much detail,
+//    what the code does is provide the TWI protocol for communicating with the MPU9250 (IMU)
+
+
 /*
   twi.h - TWI/I2C library for Wiring & Arduino
   Copyright (c) 2006 Nicholas Zambetti.  All right reserved.

@@ -12,6 +12,7 @@
 #include "motor.h"
 #include "timer.h"
 
+// All defined types of BT packets
 #define PKT_JOYSTICK_X   0
 #define PKT_JOYSTICK_Y   1
 #define PKT_DISTANCE     2
@@ -28,6 +29,7 @@
 #define PKT_RIGHT        13
 #define PKT_LEFT         14
 
+// MAximum received packet buffer size
 #define BT_BUFFER_SIZE 5
 
 typedef struct {

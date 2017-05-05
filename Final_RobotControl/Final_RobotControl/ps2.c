@@ -1,3 +1,11 @@
+
+
+// Modified for personal project by Keelin Wheeler in March 2017:
+//  This code is converted to C from an arduino library at http://playground.arduino.cc/ComponentLib/Ps2mouse
+//  The details of this code need not be discussed or commented in much detail, except for the driftCorrection() function.
+//    What the code does is get readings from the PS/2 Mouse, acting as an odometer, and also manages the PID control for side to side drift
+
+
 #include "ps2.h"
 
 static void ps2_init(void);
@@ -141,48 +149,66 @@ void mouse_pos(char* stat, char* x, char* y) {
     *y = ps2_read();
 }
 
+// Calculates the drift correction according to a PID controller on the error in side to side drift
 double driftCorrection(char stat, char x, char y, uint8_t straight) {
     // stat & (1<<4) => x sign
     // stat & (1<<6) => x overflow
-    // PID Control to move straight
+
+    // PID Control only when moving straight
     if (straight) {
-        if ((stat & (1<<6)) != 0) {
-            if (stat & (1<<4))
-                x = -127;
+        if ((stat & (1<<6)) != 0) { // If overflow
+            if (stat & (1<<4)) // If negative
+                x = -127; // Set to minimum value
             else
-                x = 127;
+                x = 127; // Set to maimum value
         }
+        // Multiply to recover accumulated drift, i,e, undo the average [ drift = sum(x) / driftSize ]
         drift*=driftSize;
         if (driftSize>= DRIFT_MAX_SIZE)
+            // If we exceed size limit, subtract earliest measurement from sum
             drift -= driftArr[driftIndex];
-        if (stat & (1<<4)) {
-            x = (x^0xff) + 1;
-            if (x > 10)
-                driftArr[driftIndex] = -x;
-        } else if (x > 10) driftArr[driftIndex] = x;
+
+        if (stat & (1<<4)) { // If negative
+            x = (x^0xff) + 1; // Convert to postitive magnitude by 2's compliment
+            if (x > 10) // Only consider errors with magnitude greater than 10
+                driftArr[driftIndex] = -x; // Add negative error to list
+        } else if (x > 10) driftArr[driftIndex] = x;  // Add negative error to list if greater than 10
+        // Increase the size if we didn't reach the limit
         if (driftSize < DRIFT_MAX_SIZE)
             driftSize++;
+        // Add current measurement to sum accumulated drift
         drift += driftArr[driftIndex];
+        // Take the average of all measured drifts
         drift /= driftSize;
-        driftIndex++;
+        driftIndex++; // Increase the index into the buffer of measurements
+        // If index exceeds max size of buffer, loop back to zero
         if (driftIndex>=DRIFT_MAX_SIZE) driftIndex = 0;
     } else {
+        // We are not going straight, so let's take this time to reset the PID measurements (to zero)
         driftSize = 0;
         drift = 0;
     }
 
     // Perform PID control to keep robot straight
-    sampleDelay = (double)(timer_ellapsed_micros(0, 1)/1000000.0);
-    if (iSize < I_SIZE_MAX){
-        errorIntegral += (double)drift;
-        iSize++;
+    // Calculate delay between measurement samples by reading from simulated timer 0, flag to reset timer as well
+    sampleDelay = (double)(timer_ellapsed_micros(0, 1)/1000000.0); // (timer.c)
+    // Calculate the integral term in the PID equation
+    if (iSize < I_SIZE_MAX){ // If we have not reached the limit on the integral buffer
+        errorIntegral += (double)drift; // Add the current drift to the integral buffer
+        iSize++; // Update size of data in integral buffer
     } else {
+        // Max size reached, so replace earliest measured drift (by subtracting it out) with latest drift (by adding it in)
         errorIntegral += ((double)drift-errorArr[iPos]);
     }
+    // Update buffer of drift values
     errorArr[iPos] = (double)drift;
-    iPos++;
-    if (iPos>=I_SIZE_MAX) iPos = 0;
+    iPos++; // Increment index into error buffer
+    if (iPos>=I_SIZE_MAX) iPos = 0; // If index exceeds max, loop back to zero
+    // Calculate the derivative term in the PID equation
     errorDerivative = (drift - errorProportional)/sampleDelay;
+    // Calculate the proportional term in the PID equation (equal to current drift error)
     errorProportional = drift;
+
+    // Return the correction (the biased sum of weighted terms)
     return KBIAS*(KP*errorProportional + KI*errorIntegral*sampleDelay + KD*errorDerivative);
 }

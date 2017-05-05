@@ -11,6 +11,8 @@
 #define SERVO_MIN .768 // duty:6
 #define SERVO_MAX 2.816 // duty:22
 
+#define SERVO_MAX_DISTANCE_BUFFER 50
+
 void servo_init(void);
 void setServoAngle(double angle);
 double servoSweepDistanceTask(void);

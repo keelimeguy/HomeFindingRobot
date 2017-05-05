@@ -1,3 +1,6 @@
+#ifndef LINE_SENSOR_H
+#define LINE_SENSOR_H
+
 #include <avr/io.h>
 #include "timer.h"
 
@@ -29,3 +32,5 @@ uint8_t getPositionY(void);
 void setPosition(int x, int y);
 void setDirection(int dir);
 double updatePosition(void);
+
+#endif

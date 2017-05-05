@@ -1,3 +1,11 @@
+
+
+// Modified for personal project by Keelin Wheeler in March 2017:
+//  This code is converted to C from an arduino library at http://playground.arduino.cc/ComponentLib/Ps2mouse
+//  The details of this code need not be discussed or commented in much detail, except for the driftCorrection() function.
+//    What the code does is get readings from the PS/2 Mouse, acting as an odometer, and also manages the PID control for side to side drift
+
+
 #ifndef PS2_h
 #define PS2_h
 

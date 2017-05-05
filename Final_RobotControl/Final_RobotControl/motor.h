@@ -6,8 +6,10 @@
 
 #define MAX_SPEED 1.00
 #define MIN_SPEED 0.40
+// Disallow changing direction of motor when stopped
 #define LEFT_MOTOR_DIR_CHANGEABLE (leftDutyCycle != 0)
 #define RIGHT_MOTOR_DIR_CHANGEABLE (rightDutyCycle != 0)
+
 #define DIR_FORWARD 5     // 0b0101  [L_in1][L_in2][R_in1][R_in2]
 #define DIR_BACKWARD 10   // 0b1010
 #define DIR_LEFT 9        // 0b1001
