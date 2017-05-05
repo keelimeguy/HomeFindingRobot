@@ -131,7 +131,7 @@ static void setLeftDutyCycle(double dutyPercent) {
 // Set the duty cycle of the right motors
 static void setRightDutyCycle(double dutyPercent) {
     uint8_t duty;
-    if (dutyPercent >= MAX_SPEE D) duty = MAX_SPEED*0xff;
+    if (dutyPercent >= MAX_SPEED) duty = MAX_SPEED*0xff;
     else if (dutyPercent <= MIN_SPEED) duty = 0;
     else duty = getDutyCycle(dutyPercent*1.05, 0xff);
     // Keep the duty cycle within range

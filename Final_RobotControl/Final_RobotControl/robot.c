@@ -29,7 +29,7 @@ static double baseSpeed = 0, rightBias = 0, leftBias = 0;
 
 static void yJOYTask(BT_packet_t pkt, double correction, uint8_t* straight);
 static void xJoyTask(BT_packet_t pkt, double correction, uint8_t* straight);
-static uint8_t void handleOtherPKT(BT_packet_t pkt, double correction, float heading);
+static uint8_t handleOtherPKT(BT_packet_t pkt, double correction, float heading);
 
 // Setup teh robot by initializing everything
 void setup(uint8_t calibrate) {
@@ -86,7 +86,7 @@ void getDisplacement(char* stat, char* x, char* y) {
 }
 
 // Handles Y-Joystick bluetooth packets (forward/backward control)
-static void yJOYTask(BT_packet_t pkt, double correction, uint8_t* straight) {
+static void yJoyTask(BT_packet_t pkt, double correction, uint8_t* straight) {
     // Parse packet data
     uint16_t val = pkt.pkt_val[0];
     val |= pkt.pkt_val[1]<<8;
@@ -190,7 +190,7 @@ static void xJoyTask(BT_packet_t pkt, double correction, uint8_t* straight) {
 }
 
 // Handle other specific command packets
-static uint8_t void handleOtherPKT(BT_packet_t pkt, double correction, float heading) {
+static uint8_t handleOtherPKT(BT_packet_t pkt, double correction, float heading) {
     // Handle command to enter autonomous avoid mode
     if (pkt.pkt_type == PKT_AUTO_MODE) {
         stop(); // (motor.c)
@@ -525,7 +525,7 @@ uint8_t robot_autonomous_avoid_task(double correction, float heading, uint8_t* s
                     // Obstacle detected, stop turning
                     // Stop before changing state
                     stop(); // (motor.c)
-                    stopped = 1
+                    stopped = 1;
                     // Read the distance directly through ultrasonic sensor, store it in bugDist variable (last distance seen)
                     bugDist = getObstacleDistanceCm(); // (ultrasonic_sensor.c)
                     // Turn servo to middle left
