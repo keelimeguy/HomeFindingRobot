@@ -10,7 +10,7 @@
 ### Resources:
 - [Mouse Datasheet](http://html.alldatasheet.com/html-pdf/333277/PIXART/PAW3402DK-TJ/1810/8/PAW3402DK-TJ.html)
 
-- [PS/2 Protocol](http://www.computer-engineering.org/ps2protocol/)
+- ~~PS/2 Protocol~~ Old link (Reference 1 on [Wikipedia](https://en.wikipedia.org/wiki/PS/2_port)) seems to no longer exist..
 
 - [PS/2 Command Codes](https://www.win.tue.nl/~aeb/linux/kbd/scancodes-13.html)
 
